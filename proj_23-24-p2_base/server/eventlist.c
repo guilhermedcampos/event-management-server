@@ -6,10 +6,6 @@
 struct EventList* create_list() {
   struct EventList* list = (struct EventList*)malloc(sizeof(struct EventList));
   if (!list) return NULL;
-  if (pthread_rwlock_init(&list->rwl, NULL) != 0) {
-    free(list);
-    return NULL;
-  }
   list->head = NULL;
   list->tail = NULL;
   return list;
@@ -37,6 +33,10 @@ int append_to_list(struct EventList* list, struct Event* event) {
 
 static void free_event(struct Event* event) {
   if (!event) return;
+    // Destroy seat mutexes
+  for (size_t i = 0; i < event->rows * event->cols; i++) {
+      pthread_mutex_destroy(&event->mutexes[i]);
+  }
   free(event->data);
   free(event);
 }
@@ -59,6 +59,7 @@ void free_list(struct EventList* list) {
 struct Event* get_event(struct EventList* list, unsigned int event_id, struct ListNode* from, struct ListNode* to) {
   if (!list || !from || !to) return NULL;
   struct ListNode* current = from;
+  // old: struct ListNode *current = list->head;
 
   while (1) {
     if (current->event->id == event_id) {
