@@ -44,12 +44,8 @@ void* handle_client(void* args) {
   struct Session* thread_data = (struct Session*)args;
   printf("Handling session %d\n", thread_data->session_id);
 
-  // Open the client's request and response pipes
-  char request_pipe_path[PATH_MAX];
-  char response_pipe_path[PATH_MAX];
-
-  int request_pipe = open(request_pipe_path, O_RDONLY);
-  int response_pipe = open(response_pipe_path, O_WRONLY);
+  int request_pipe = open(thread_data->request_pipe_path, O_RDONLY);
+  int response_pipe = open(thread_data->response_pipe_path, O_WRONLY);
 
   // Handle client requests
   char op_code;
