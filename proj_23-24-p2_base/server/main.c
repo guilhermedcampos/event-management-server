@@ -180,11 +180,6 @@ int main(int argc, char* argv[]) {
     ems_terminate();
     return 1;
   }
-  if (server_fd == -1) {
-    perror("Error opening named pipe for reading");
-    ems_terminate();
-    return 1;
-  }
   printf("Server pipe opened\n");
 
   // Loop to populate the sessions array with session IDs and associated pipes
