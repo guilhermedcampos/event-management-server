@@ -27,7 +27,7 @@ int ems_setup(char const *req_pipe_path, char const *resp_pipe_path, char const 
   }
 
   // Send session start request
-  char op_code = 1; // Character OP_CODE for session setup
+  char op_code = 1;  // Character OP_CODE for session setup
   write(server_fd, &op_code, sizeof(char));
   write(server_fd, req_pipe_path, MAX_PATH);
   write(server_fd, resp_pipe_path, MAX_PATH);
@@ -104,7 +104,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   return result;
 }
 
-int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys) {
+int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys) {
   // Send reserve request to server through named pipe
   int req_fd = open(sessions[active_sessions - 1].req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
@@ -117,7 +117,6 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
   write(req_fd, &num_seats, sizeof(size_t));
   write(req_fd, xs, num_seats * sizeof(size_t));
   write(req_fd, ys, num_seats * sizeof(size_t));
-
 
   // Handle server response
   int resp_fd = open(sessions[active_sessions - 1].resp_pipe_path, O_RDONLY);
@@ -169,6 +168,10 @@ int ems_show(int out_fd, int event_id) {
       int seat;
       read(resp_fd, &seat, sizeof(unsigned int));
       write(out_fd, &seat, sizeof(unsigned int));
+      if (j == num_cols - 1) {
+        char newline = '\n';
+        write(out_fd, &newline, sizeof(char));
+      }
     }
   }
 
@@ -210,7 +213,7 @@ int ems_list_events(int out_fd) {
       size_t num_rows, num_cols, num_coords;
       read(resp_fd, &event_id, sizeof(unsigned int));
       write(out_fd, " ", strlen(" "));
-      write(out_fd, &event_id , sizeof(unsigned int));
+      write(out_fd, &event_id, sizeof(unsigned int));
     }
   }
 
