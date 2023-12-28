@@ -1,11 +1,11 @@
 #include <fcntl.h>
 #include <limits.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <pthread.h>
 
 #include "common/constants.h"
 #include "common/io.h"
@@ -29,7 +29,68 @@ void* handle_client(void* args) {
   int session_id = *((int*)args);
   printf("Handling session %d\n", session_id);
 
-  // TODO: Implement logic to handle client requests for this session
+  // Open the client's request and response pipes
+  char client_pipe_path[PATH_MAX];
+  char response_pipe_path[PATH_MAX];
+  get_pipe_paths(session_id, client_pipe_path, response_pipe_path);  // Assuming this function exists
+  int client_pipe = open(client_pipe_path, O_RDONLY);
+  int response_pipe = open(response_pipe_path, O_WRONLY);
+
+  // Handle client requests
+  char op_code;
+  while (read(client_pipe, &op_code, sizeof(op_code)) > 0) {
+    switch (op_code) {
+      case 1:  // ems_setup
+        // Handle ems_setup
+        char req_pipe_path[MAX_PATH];
+        char resp_pipe_path[MAX_PATH];
+        read(client_pipe, req_pipe_path, MAX_PATH);
+        read(client_pipe, resp_pipe_path, MAX_PATH);
+        ems_setup(req_pipe_path, resp_pipe_path, server_pipe_path);  // Assuming this function exists
+        break;
+      case 2:  // ems_quit
+        // Handle ems_quit
+        ems_quit();  // Assuming this function exists
+        break;
+      case 3:  // ems_create
+        // Handle ems_create
+        unsigned int event_id;
+        size_t num_rows, num_cols;
+        read(client_pipe, &event_id, sizeof(event_id));
+        read(client_pipe, &num_rows, sizeof(num_rows));
+        read(client_pipe, &num_cols, sizeof(num_cols));
+        ems_create(event_id, num_rows, num_cols);  // Assuming this function exists
+        break;
+      case 4:  // ems_reserve
+        // Handle ems_reserve
+        unsigned int event_id;
+        size_t num_seats;
+        read(client_pipe, &event_id, sizeof(event_id));
+        read(client_pipe, &num_seats, sizeof(num_seats));
+        size_t xs[num_seats], ys[num_seats];
+        read(client_pipe, xs, num_seats * sizeof(size_t));
+        read(client_pipe, ys, num_seats * sizeof(size_t));
+        ems_reserve(event_id, num_seats, xs, ys);  // Assuming this function exists
+        break;
+      case 5:  // ems_show
+        // Handle ems_show
+        unsigned int event_id;
+        read(client_pipe, &event_id, sizeof(event_id));
+        ems_show(response_pipe, event_id);  // Assuming this function exists
+        break;
+      case 6:  // ems_list_events
+        // Handle ems_list_events
+        ems_list_events(response_pipe);  // Assuming this function exists
+        break;
+      default:
+        printf("Unknown operation code: %d\n", op_code);
+        break;
+    }
+  }
+
+  // Close the pipes
+  close(client_pipe);
+  close(response_pipe);
 
   pthread_mutex_lock(&sessions_mutex);
   remove_session(session_id);  // Remove the session after it's handled
@@ -135,7 +196,6 @@ int main(int argc, char* argv[]) {
       return 1;
     }
   }
-
 
   // Wait for all threads to finish before exiting
   for (int i = 0; i < MAX_SESSIONS; ++i) {
