@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
   char* response_pipe = "response_pipe";
 
   // Create a session with the server
-  int session_id = ems_setup(request_pipe, response_pipe);
+  int session_id = ems_setup(request_pipe, response_pipe, argv[3]);
   if (session_id == -1) {
     fprintf(stderr, "Failed to setup session\n");
     return 1;
