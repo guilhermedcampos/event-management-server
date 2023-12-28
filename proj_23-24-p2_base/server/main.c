@@ -181,7 +181,7 @@ int main(int argc, char* argv[]) {
   // Loop to populate the sessions array with session IDs and associated pipes
   // while reading from server pipe isnt a blank space
   printf("Waiting for clients...\n");
-  while (read(server_fd, &server_fd, sizeof(server_fd)) != ' ') {
+  while (read(server_fd, &server_fd, sizeof(server_fd)) != 0 ) {
     // Read from the pipe to get client session initiation request
     printf("Client connected\n");
     printf("Reading from server pipe...\n");
