@@ -165,7 +165,7 @@ int main(int argc, char* argv[]) {
 
   printf("Creating server pipe...\n");
   // Create a named pipe for reading
-  if (mkfifo(server_pipe_path, 0666) == -1) {
+  if (mkfifo(server_pipe_path, 0666) == -1) {  // 0666 is the permission for the pipe to be read and written
     perror("Error creating named pipe");
     ems_terminate();
     return 1;
@@ -175,6 +175,11 @@ int main(int argc, char* argv[]) {
   // Open the named pipe for reading (blocking until a client connects)
   printf("Opening server pipe...\n");
   int server_fd = open(server_pipe_path, O_RDONLY);
+  if (server_fd == -1) {
+    perror("Error opening server pipe");
+    ems_terminate();
+    return 1;
+  }
   if (server_fd == -1) {
     perror("Error opening named pipe for reading");
     ems_terminate();
