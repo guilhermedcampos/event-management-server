@@ -27,7 +27,7 @@ int ems_setup(char const *req_pipe_path, char const *resp_pipe_path, char const 
   }
 
   // Send session start request
-  char op_code = 1;
+  char op_code = 1; // Character OP_CODE for session setup
   write(server_fd, &op_code, sizeof(char));
   write(server_fd, req_pipe_path, MAX_PATH);
   write(server_fd, resp_pipe_path, MAX_PATH);
@@ -124,7 +124,7 @@ int ems_reserve(unsigned int event_id, size_t row, size_t col) {
   return result;
 }
 
-int ems_show(unsigned int event_id) {
+int ems_show(int out_fd, int event_id) {
   // Send show request to server through named pipe
   int req_fd = open(sessions[active_sessions - 1].req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
@@ -148,7 +148,7 @@ int ems_show(unsigned int event_id) {
   return result;
 }
 
-int ems_list_events() {
+int ems_list_events(int out_fd) {
   // Send list events request to server through named pipe
   int req_fd = open(sessions[active_sessions - 1].req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
