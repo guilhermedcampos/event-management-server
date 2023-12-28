@@ -43,13 +43,13 @@ void remove_session(int session_id) {
 
 // Function to handle a client session in a separate thread
 void* handle_client(void* args) {
-  int session_id = *((int*)args);
-  printf("Handling session %d\n", session_id);
+  Session *thread_data = (struct ThreadData *)args;
+  printf("Handling session %d\n", thread_data->session_id);
 
   // Open the client's request and response pipes
   char request_pipe_path[PATH_MAX];
   char response_pipe_path[PATH_MAX];
-  get_pipe_paths(session_id, request_pipe_path, response_pipe_path);  // Assuming this function exists
+  
   int client_pipe = open(request_pipe_path, O_RDONLY);
   int response_pipe = open(response_pipe_path, O_WRONLY);
 
@@ -182,26 +182,10 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  // TODO: Intialize server, create worker threads
 
-  pthread_t threads[MAX_SESSIONS];  // Array to store thread IDs
-  int thread_args[MAX_SESSIONS];    // Array to store thread arguments (session IDs)
-
-  // Create worker threads for each session
-  for (int i = 0; i < MAX_SESSIONS; ++i) {
-    thread_args[i] = allocate_unique_session_id();  // Allocate unique session ID for each thread
-    if (pthread_create(&threads[i], NULL, handle_client, &thread_args[i]) != 0) {
-      perror("Error creating thread");
-      return 1;
-    }
-  }
-
-  // Wait for all threads to finish before exiting
-  for (int i = 0; i < MAX_SESSIONS; ++i) {
-    pthread_join(threads[i], NULL);
-  }
-
-  while (1) {
+  // Loop to populate the sessions array with session IDs and associated pipes
+  // while reading from server pipe isnt a blank space
+  while (read(server_fd, &server_fd, sizeof(server_fd)) != ' ') {
     // Read from the pipe to get client session initiation request
     char request_pipe_path[PATH_MAX];
     if (read(server_fd, request_pipe_path, sizeof(request_pipe_path)) == -1) {
@@ -231,12 +215,31 @@ int main(int argc, char* argv[]) {
       break;
     }
 
-    // Store the association between session_id and client pipes
-    associate_session(session_id, request_pipe_path, response_pipe_path);
-
     // TODO: Write new client to the producer-consumer buffer
     // Write new client to the producer-consumer buffer
-    write_to_buffer(session_id, request_pipe_path, response_pipe_path);
+    // Store the association between session_id and client pipes
+    associate_session(session_id, request_pipe_path, response_pipe_path);
+  }
+
+  // TODO: Intialize server, create worker threads
+
+  pthread_t threads[MAX_SESSIONS];  // Array to store thread IDs
+  Session thread_args[MAX_SESSIONS];    // Array to store thread arguments (session IDs, request and response pipe paths)
+
+  // Create worker threads for each session
+  for (int i = 0; i < MAX_SESSIONS; ++i) {
+    thread_args[i].session_id = sessions[i].session_id;  // Allocate unique session ID for each thread
+    thread_args[i].request_pipe_path = sessions[i].request_pipe_path;
+    thread_args[i].response_pipe_path = sessions[i].response_pipe_path;
+    if (pthread_create(&threads[i], NULL, handle_client, (void *)&thread_args[i]) != 0) {
+      perror("Error creating thread");
+      return 1;
+    }
+  }
+
+  // Wait for all threads to finish before exiting
+  for (int i = 0; i < MAX_SESSIONS; ++i) {
+    pthread_join(threads[i], NULL);
   }
 
   // TODO: Close Server
