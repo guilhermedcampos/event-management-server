@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -12,8 +13,7 @@ typedef struct {
   char resp_pipe_path[MAX_PATH];
 } Session;
 
-Session sessions[S];
-int active_sessions = 0;
+Session session;
 
 int ems_setup(char const *req_pipe_path, char const *resp_pipe_path, char const *server_pipe_path) {
   // Create request and response pipes
@@ -32,15 +32,14 @@ int ems_setup(char const *req_pipe_path, char const *resp_pipe_path, char const 
   write(server_fd, req_pipe_path, MAX_PATH);
   write(server_fd, resp_pipe_path, MAX_PATH);
 
-  // Store session_id in sessions array
+  // Store session_id in session variable
   int resp_fd = open(resp_pipe_path, O_RDONLY);
   if (resp_fd < 0) {
     return 1;
   }
-  read(resp_fd, &sessions[active_sessions].session_id, sizeof(int));
-  strcpy(sessions[active_sessions].req_pipe_path, req_pipe_path);
-  strcpy(sessions[active_sessions].resp_pipe_path, resp_pipe_path);
-  active_sessions++;
+  read(resp_fd, &session.session_id, sizeof(int));
+  strcpy(session.req_pipe_path, req_pipe_path);
+  strcpy(session.resp_pipe_path, resp_pipe_path);
 
   close(server_fd);
   close(resp_fd);
@@ -50,31 +49,30 @@ int ems_setup(char const *req_pipe_path, char const *resp_pipe_path, char const 
 
 int ems_quit() {
   // Send session end message to server
-  int req_fd = open(sessions[active_sessions - 1].req_pipe_path, O_WRONLY);
+  int req_fd = open(session.req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
     return 1;
   }
-  char op_code = 2;
+  char op_code = 2;  // Character OP_CODE for session end
   write(req_fd, &op_code, sizeof(char));
 
   // Close named pipes
   close(req_fd);
-  int resp_fd = open(sessions[active_sessions - 1].resp_pipe_path, O_RDONLY);
+  int resp_fd = open(session.resp_pipe_path, O_RDONLY);
   if (resp_fd >= 0) {
     close(resp_fd);
   }
 
-  // Delete client named pipe
-  unlink(sessions[active_sessions - 1].req_pipe_path);
-  unlink(sessions[active_sessions - 1].resp_pipe_path);
-  active_sessions--;
+  // Delete client named pipes
+  unlink(session.req_pipe_path);
+  unlink(session.resp_pipe_path);
 
   return 0;
 }
 
 int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   // Send create request to server through named pipe
-  int req_fd = open(sessions[active_sessions - 1].req_pipe_path, O_WRONLY);
+  int req_fd = open(session.req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
     return 1;
   }
@@ -87,7 +85,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   write(req_fd, &num_cols, sizeof(size_t));
 
   // Handle server response
-  int resp_fd = open(sessions[active_sessions - 1].resp_pipe_path, O_RDONLY);
+  int resp_fd = open(session.resp_pipe_path, O_RDONLY);
   if (resp_fd < 0) {
     return 1;
   }
@@ -106,7 +104,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
 
 int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys) {
   // Send reserve request to server through named pipe
-  int req_fd = open(sessions[active_sessions - 1].req_pipe_path, O_WRONLY);
+  int req_fd = open(session.req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
     return 1;
   }
@@ -119,7 +117,7 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
   write(req_fd, ys, num_seats * sizeof(size_t));
 
   // Handle server response
-  int resp_fd = open(sessions[active_sessions - 1].resp_pipe_path, O_RDONLY);
+  int resp_fd = open(session.resp_pipe_path, O_RDONLY);
   if (resp_fd < 0) {
     return 1;
   }
@@ -127,7 +125,7 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
   read(resp_fd, &result, sizeof(int));
 
   if (result == 1) {
-    perror("Server couldnt reserve.");
+    perror("Server couldn't reserve.");
   }
 
   close(req_fd);
@@ -138,7 +136,7 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
 
 int ems_show(int out_fd, int event_id) {
   // Send show request to server through named pipe
-  int req_fd = open(sessions[active_sessions - 1].req_pipe_path, O_WRONLY);
+  int req_fd = open(session.req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
     return 1;
   }
@@ -147,7 +145,7 @@ int ems_show(int out_fd, int event_id) {
   write(req_fd, &event_id, sizeof(unsigned int));
 
   // Handle server response
-  int resp_fd = open(sessions[active_sessions - 1].resp_pipe_path, O_RDONLY);
+  int resp_fd = open(session.resp_pipe_path, O_RDONLY);
   if (resp_fd < 0) {
     return 1;
   }
@@ -155,7 +153,7 @@ int ems_show(int out_fd, int event_id) {
   read(resp_fd, &result, sizeof(int));
 
   if (result == 1) {
-    perror("Server couldnt show.");
+    perror("Server couldn't show.");
   }
 
   size_t num_rows;
@@ -183,7 +181,7 @@ int ems_show(int out_fd, int event_id) {
 
 int ems_list_events(int out_fd) {
   // Send list events request to server through named pipe
-  int req_fd = open(sessions[active_sessions - 1].req_pipe_path, O_WRONLY);
+  int req_fd = open(session.req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
     return 1;
   }
@@ -191,7 +189,7 @@ int ems_list_events(int out_fd) {
   write(req_fd, &op_code, sizeof(char));
 
   // Handle server response
-  int resp_fd = open(sessions[active_sessions - 1].resp_pipe_path, O_RDONLY);
+  int resp_fd = open(session.resp_pipe_path, O_RDONLY);
   if (resp_fd < 0) {
     return 1;
   }

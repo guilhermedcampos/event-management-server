@@ -15,7 +15,7 @@
 
 typedef struct {
   int session_id;
-  char client_pipe_path[PATH_MAX];
+  char request_pipe_path[PATH_MAX];
   char response_pipe_path[PATH_MAX];
 } Session;
 
@@ -30,10 +30,10 @@ void* handle_client(void* args) {
   printf("Handling session %d\n", session_id);
 
   // Open the client's request and response pipes
-  char client_pipe_path[PATH_MAX];
+  char request_pipe_path[PATH_MAX];
   char response_pipe_path[PATH_MAX];
-  get_pipe_paths(session_id, client_pipe_path, response_pipe_path);  // Assuming this function exists
-  int client_pipe = open(client_pipe_path, O_RDONLY);
+  get_pipe_paths(session_id, request_pipe_path, response_pipe_path);  // Assuming this function exists
+  int client_pipe = open(request_pipe_path, O_RDONLY);
   int response_pipe = open(response_pipe_path, O_WRONLY);
 
   // Handle client requests
@@ -42,11 +42,10 @@ void* handle_client(void* args) {
     switch (op_code) {
       case 1:  // ems_setup
         // Handle ems_setup
-        char req_pipe_path[MAX_PATH];
-        char resp_pipe_path[MAX_PATH];
-        read(client_pipe, req_pipe_path, MAX_PATH);
-        read(client_pipe, resp_pipe_path, MAX_PATH);
-        ems_setup(req_pipe_path, resp_pipe_path, server_pipe_path);  // Assuming this function exists
+        char req_pipe_path[PATH_MAX];
+        char resp_pipe_path[PATH_MAX];
+        read(client_pipe, req_pipe_path, PATH_MAX);
+        read(client_pipe, resp_pipe_path, PATH_MAX);
         break;
       case 2:  // ems_quit
         // Handle ems_quit
@@ -108,10 +107,10 @@ int allocate_unique_session_id() {
 }
 
 // Function to associate a session with client pipes
-void associate_session(int session_id, char* client_pipe_path, char* response_pipe_path) {
+void associate_session(int session_id, char* request_pipe_path, char* response_pipe_path) {
   if (session_counter < MAX_SESSIONS) {
     sessions[session_counter].session_id = session_id;
-    strncpy(sessions[session_counter].client_pipe_path, client_pipe_path, PATH_MAX);
+    strncpy(sessions[session_counter].request_pipe_path, request_pipe_path, PATH_MAX);
     strncpy(sessions[session_counter].response_pipe_path, response_pipe_path, PATH_MAX);
   } else {
     printf("Max sessions reached, cannot add more sessions.\n");
@@ -144,7 +143,7 @@ int get_active_sessions_count() { return session_counter; }
 
 int main(int argc, char* argv[]) {
   if (argc < 2 || argc > 3) {
-    fprintf(stderr, "Usage: %s\n <pipe_path> [delay]\n", argv[0]);
+    fprintf(stderr, "Usage: %s\n <server_pipe_path> [delay]\n", argv[0]);
     return 1;
   }
 
@@ -166,17 +165,17 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  char* pipe_path = argv[1];
+  char* server_pipe_path = argv[1];
 
   // Create a named pipe for reading
-  if (mkfifo(pipe_path, 0666) == -1) {
+  if (mkfifo(server_pipe_path, 0666) == -1) {
     perror("Error creating named pipe");
     ems_terminate();
     return 1;
   }
 
   // Open the named pipe for reading (blocking until a client connects)
-  int server_fd = open(pipe_path, O_RDONLY);
+  int server_fd = open(server_pipe_path, O_RDONLY);
   if (server_fd == -1) {
     perror("Error opening named pipe for reading");
     ems_terminate();
@@ -204,8 +203,8 @@ int main(int argc, char* argv[]) {
 
   while (1) {
     // Read from the pipe to get client session initiation request
-    char client_pipe_path[PATH_MAX];
-    if (read(server_fd, client_pipe_path, sizeof(client_pipe_path)) == -1) {
+    char request_pipe_path[PATH_MAX];
+    if (read(server_fd, request_pipe_path, sizeof(request_pipe_path)) == -1) {
       perror("Error reading from named pipe");
       break;
     }
@@ -233,11 +232,11 @@ int main(int argc, char* argv[]) {
     }
 
     // Store the association between session_id and client pipes
-    associate_session(session_id, client_pipe_path, response_pipe_path);
+    associate_session(session_id, request_pipe_path, response_pipe_path);
 
     // TODO: Write new client to the producer-consumer buffer
     // Write new client to the producer-consumer buffer
-    write_to_buffer(session_id, client_pipe_path, response_pipe_path);
+    write_to_buffer(session_id, request_pipe_path, response_pipe_path);
   }
 
   // TODO: Close Server
