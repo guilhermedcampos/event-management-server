@@ -57,7 +57,7 @@ void* handle_client(void* args) {
   char op_code;
   unsigned int event_id;
   size_t num_rows, num_cols, num_seats;
-  size_t xs[num_seats], ys[num_seats];  // Assuming a maximum number of seats
+  size_t xs[MAX_RESERVATION_SIZE], ys[MAX_RESERVATION_SIZE];  // Assuming a maximum number of seats
 
   while (read(request_pipe, &op_code, sizeof(op_code)) > 0 && op_code != 2) {
     switch (op_code) {
