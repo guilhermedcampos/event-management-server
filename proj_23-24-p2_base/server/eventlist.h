@@ -12,8 +12,7 @@ struct Event {
   size_t rows;  /// Number of rows.
 
   unsigned int* data;     /// Array of size rows * cols with the reservations for each seat.
-  pthread_mutex_t *mutexes; // Array of size rows * cols with the mutexes for
-                              // each seat.
+  pthread_mutex_t mutex;  // Mutex to protect the event
 };
 
 struct ListNode {
@@ -25,6 +24,7 @@ struct ListNode {
 struct EventList {
   struct ListNode* head;  // Head of the list
   struct ListNode* tail;  // Tail of the list
+  pthread_rwlock_t rwl;   // Mutex to protect the list
 };
 
 /// Creates a new event list.

@@ -1,32 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
-#include <limits.h>
 #include <time.h>
 #include <unistd.h>
 
 #include "common/io.h"
 #include "eventlist.h"
 
-// Create a rwlock for event list
-pthread_rwlock_t event_list_rwlock = PTHREAD_RWLOCK_INITIALIZER;
-
-// Create an reservation id lock
-pthread_mutex_t reservation_id_lock = PTHREAD_MUTEX_INITIALIZER;
-
-
 static struct EventList* event_list = NULL;
 static unsigned int state_access_delay_us = 0;
-
-/*
-/// Calculates a timespec from a delay in milliseconds.
-/// @param delay_ms Delay in milliseconds.
-/// @return Timespec with the given delay.
-static struct timespec delay_to_timespec(unsigned int delay_ms) {
-    return (struct timespec){delay_ms / 1000, (delay_ms % 1000) * 1000000};
-}
-*/
 
 /// Gets the event with the given ID from the state.
 /// @note Will wait to simulate a real system accessing a costly memory resource.
@@ -39,19 +21,6 @@ static struct Event* get_event_with_delay(unsigned int event_id, struct ListNode
   nanosleep(&delay, NULL);  // Should not be removed
 
   return get_event(event_list, event_id, from, to);
-}
-
-/// Gets the seat with the given index from the state.
-/// @note Will wait to simulate a real system accessing a costly memory
-/// resource.
-/// @param event Event to get the seat from.
-/// @param index Index of the seat to get.
-// @return Pointer to the seat.
-static unsigned int *get_seat_with_delay(struct Event *event, size_t index) {
-    struct timespec delay = {0, state_access_delay_us * 1000};
-    nanosleep(&delay, NULL); // Should not be removed
-
-    return &event->data[index];
 }
 
 /// Gets the index of a seat.
@@ -74,21 +43,19 @@ int ems_init(unsigned int delay_us) {
   return event_list == NULL;
 }
 
-// Function to reset the event list
-void reset_event_list() {
-    if (event_list != NULL) {
-        free_list(event_list);
-        event_list = create_list();
-    }
-}
-
 int ems_terminate() {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
     return 1;
   }
 
+  if (pthread_rwlock_wrlock(&event_list->rwl) != 0) {
+    fprintf(stderr, "Error locking list rwl\n");
+    return 1;
+  }
+
   free_list(event_list);
+  pthread_rwlock_unlock(&event_list->rwl);
   return 0;
 }
 
@@ -98,12 +65,14 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
     return 1;
   }
 
-  // Lock the event list before reading the shared data
-  pthread_rwlock_wrlock(&event_list_rwlock);
+  if (pthread_rwlock_wrlock(&event_list->rwl) != 0) {
+    fprintf(stderr, "Error locking list rwl\n");
+    return 1;
+  }
 
   if (get_event_with_delay(event_id, event_list->head, event_list->tail) != NULL) {
     fprintf(stderr, "Event already exists\n");
-    pthread_rwlock_unlock(&event_list_rwlock);
+    pthread_rwlock_unlock(&event_list->rwl);
     return 1;
   }
 
@@ -111,7 +80,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
 
   if (event == NULL) {
     fprintf(stderr, "Error allocating memory for event\n");
-    pthread_rwlock_unlock(&event_list_rwlock);
+    pthread_rwlock_unlock(&event_list->rwl);
     return 1;
   }
 
@@ -119,27 +88,29 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   event->rows = num_rows;
   event->cols = num_cols;
   event->reservations = 0;
+  if (pthread_mutex_init(&event->mutex, NULL) != 0) {
+    pthread_rwlock_unlock(&event_list->rwl);
+    free(event);
+    return 1;
+  }
   event->data = calloc(num_rows * num_cols, sizeof(unsigned int));
 
   if (event->data == NULL) {
     fprintf(stderr, "Error allocating memory for event data\n");
-    pthread_rwlock_unlock(&event_list_rwlock);
+    pthread_rwlock_unlock(&event_list->rwl);
     free(event);
     return 1;
   }
-  /*    for (size_t i = 0; i < num_rows * num_cols; i++) {
-        event->data[i] = 0;
-    }*/
 
   if (append_to_list(event_list, event) != 0) {
     fprintf(stderr, "Error appending event to list\n");
-    pthread_rwlock_unlock(&event_list_rwlock);
+    pthread_rwlock_unlock(&event_list->rwl);
     free(event->data);
     free(event);
     return 1;
   }
 
-  pthread_rwlock_unlock(&event_list_rwlock);
+  pthread_rwlock_unlock(&event_list->rwl);
   return 0;
 }
 
@@ -149,181 +120,164 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
     return 1;
   }
 
-  if (pthread_rwlock_rdlock(&event_list_rwlock) != 0) {
-    fprintf(stderr, "Error locking list\n");
+  if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
+    fprintf(stderr, "Error locking list rwl\n");
     return 1;
   }
 
   struct Event* event = get_event_with_delay(event_id, event_list->head, event_list->tail);
 
+  pthread_rwlock_unlock(&event_list->rwl);
+
   if (event == NULL) {
     fprintf(stderr, "Event not found\n");
-    pthread_rwlock_unlock(&event_list_rwlock);
     return 1;
   }
 
-  pthread_rwlock_unlock(&event_list_rwlock);
+  if (pthread_mutex_lock(&event->mutex) != 0) {
+    fprintf(stderr, "Error locking mutex\n");
+    return 1;
+  }
+
+  for (size_t i = 0; i < num_seats; i++) {
+    if (xs[i] <= 0 || xs[i] > event->rows || ys[i] <= 0 || ys[i] > event->cols) {
+      fprintf(stderr, "Seat out of bounds\n");
+      pthread_mutex_unlock(&event->mutex);
+      return 1;
+    }
+  }
+
+  for (size_t i = 0; i < event->rows * event->cols; i++) {
+    for (size_t j = 0; j < num_seats; j++) {
+      if (seat_index(event, xs[j], ys[j]) != i) {
+        continue;
+      }
+
+      if (event->data[i] != 0) {
+        fprintf(stderr, "Seat already reserved\n");
+        pthread_mutex_unlock(&event->mutex);
+        return 1;
+      }
+
+      break;
+    }
+  }
 
   unsigned int reservation_id = ++event->reservations;
 
-
-  // Sort the seats by row and column and lock them in that order
   for (size_t i = 0; i < num_seats; i++) {
-      for (size_t j = i + 1; j < num_seats; j++) {
-          if (xs[i] > xs[j] || (xs[i] == xs[j] && ys[i] > ys[j])) {
-              size_t temp = xs[i];
-              xs[i] = xs[j];
-              xs[j] = temp;
-
-              temp = ys[i];
-              ys[i] = ys[j];
-              ys[j] = temp;
-          }
-      }
+    event->data[seat_index(event, xs[i], ys[i])] = reservation_id;
   }
 
-  // Look if any seat is repeated
-  for (size_t i = 0; i < num_seats; i++) {
-      for (size_t j = i + 1; j < num_seats; j++) {
-          if (xs[i] == xs[j] && ys[i] == ys[j]) {
-              return 1;
-          }
-      }
-  }
-
-  // Lock seat mutexes
-  for (size_t i = 0; i < num_seats; i++) {
-      pthread_mutex_lock(&event->mutexes[seat_index(event, xs[i], ys[i])]);
-  }
-
-  size_t i = 0;
-  for (; i < num_seats; i++) {
-      size_t row = xs[i];
-      size_t col = ys[i];
-
-      if (row <= 0 || row > event->rows || col <= 0 || col > event->cols) {
-          fprintf(stderr, "Invalid seat\n");
-          break;
-      }
-
-      if (*get_seat_with_delay(event, seat_index(event, row, col)) != 0) {
-          fprintf(stderr, "Seat already reserved\n");
-
-          break;
-      }
-
-      *get_seat_with_delay(event, seat_index(event, row, col)) =
-          reservation_id;
-  }
-
-    // If the reservation was not successful, free the seats that were reserved.
-  if (i < num_seats) {
-      event->reservations--;
-      for (size_t j = 0; j < i; j++) {
-          *get_seat_with_delay(event, seat_index(event, xs[j], ys[j])) = 0;
-      }
-      pthread_mutex_unlock(&reservation_id_lock);
-
-      // Unlock seat mutexes
-      for (size_t j = 0; j < num_seats; j++) {
-          pthread_mutex_unlock(
-              &event->mutexes[seat_index(event, xs[j], ys[j])]);
-      }
-      return 1;
-  }
-  pthread_mutex_unlock(&reservation_id_lock);
-
-
-  // Unlock seat mutexes
-  for (size_t j = 0; j < num_seats; j++) {
-      pthread_mutex_unlock(&event->mutexes[seat_index(event, xs[j], ys[j])]);
-  }
-
-  for (size_t k = 0; k < num_seats; k++) {
-    event->data[seat_index(event, xs[k], ys[k])] = reservation_id;
-  }
-
+  pthread_mutex_unlock(&event->mutex);
   return 0;
 }
 
-
-int ems_show(unsigned int event_id, int fd) {
+int ems_show(int out_fd, unsigned int event_id) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
     return 1;
   }
 
-  if (pthread_rwlock_rdlock(&event_list_rwlock) != 0) {
+  if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
     fprintf(stderr, "Error locking list rwl\n");
     return 1;
   }
 
   struct Event* event = get_event_with_delay(event_id, event_list->head, event_list->tail);
 
+  pthread_rwlock_unlock(&event_list->rwl);
+
   if (event == NULL) {
     fprintf(stderr, "Event not found\n");
-    pthread_rwlock_unlock(&event_list_rwlock);
     return 1;
   }
 
-  pthread_rwlock_unlock(&event_list_rwlock);
-
-  // Lock every seat mutex before reading the shared data
-  for (size_t i = 0; i < event->rows * event->cols; i++) {
-      pthread_mutex_lock(&event->mutexes[i]);
+  if (pthread_mutex_lock(&event->mutex) != 0) {
+    fprintf(stderr, "Error locking mutex\n");
+    return 1;
   }
 
-for (size_t i = 1; i <= event->rows; i++) {
-      for (size_t j = 1; j <= event->cols; j++) {
-          unsigned int *seat =
-              get_seat_with_delay(event, seat_index(event, i, j));
+  for (size_t i = 1; i <= event->rows; i++) {
+    for (size_t j = 1; j <= event->cols; j++) {
+      char buffer[16];
+      sprintf(buffer, "%u", event->data[seat_index(event, i, j)]);
 
-          char seat_str[64];
-          snprintf(seat_str, 64, "%u ", *seat);
-
-          // Write the formatted seat string to the file
-          write(fd, seat_str, strlen(seat_str));
+      if (print_str(out_fd, buffer)) {
+        perror("Error writing to file descriptor");
+        pthread_mutex_unlock(&event->mutex);
+        return 1;
       }
 
-      // Add a newline after each row
-      char newline = '\n';
-      write(fd, &newline, 1);
+      if (j < event->cols) {
+        if (print_str(out_fd, " ")) {
+          perror("Error writing to file descriptor");
+          pthread_mutex_unlock(&event->mutex);
+          return 1;
+        }
+      }
+    }
+
+    if (print_str(out_fd, "\n")) {
+      perror("Error writing to file descriptor");
+      pthread_mutex_unlock(&event->mutex);
+      return 1;
+    }
   }
 
-  // Unlock the seat mutex after reading the shared data
-  for (size_t i = 0; i < event->rows * event->cols; i++) {
-      pthread_mutex_unlock(&event->mutexes[i]);
-  }
+  pthread_mutex_unlock(&event->mutex);
   return 0;
 }
 
-int ems_list_events(int fd) {
+int ems_list_events(int out_fd) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
     return 1;
   }
 
-  if (pthread_rwlock_rdlock(&event_list_rwlock) != 0) {
+  if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
     fprintf(stderr, "Error locking list rwl\n");
     return 1;
   }
 
-    if (event_list->head == NULL) {
-    write(fd, "No events\n", strlen("No events\n"));
-    pthread_rwlock_unlock(&event_list_rwlock);
+  struct ListNode* to = event_list->tail;
+  struct ListNode* current = event_list->head;
+
+  if (current == NULL) {
+    char buff[] = "No events\n";
+    if (print_str(out_fd, buff)) {
+      perror("Error writing to file descriptor");
+      pthread_rwlock_unlock(&event_list->rwl);
+      return 1;
+    }
+
+    pthread_rwlock_unlock(&event_list->rwl);
     return 0;
   }
 
-  //struct ListNode* to = event_list->tail;
-  struct ListNode* current = event_list->head;
-
-      while (current != NULL) {
-        char buffer[64];
-        int length = snprintf(buffer, sizeof(buffer), "Event: %u\n",
-                              (current->event)->id);
-        write(fd, buffer, (size_t)length);
-        current = current->next;
+  while (1) {
+    char buff[] = "Event: ";
+    if (print_str(out_fd, buff)) {
+      perror("Error writing to file descriptor");
+      pthread_rwlock_unlock(&event_list->rwl);
+      return 1;
     }
-    pthread_rwlock_unlock(&event_list_rwlock);
-    return 0;
+
+    char id[16];
+    sprintf(id, "%u\n", (current->event)->id);
+    if (print_str(out_fd, id)) {
+      perror("Error writing to file descriptor");
+      pthread_rwlock_unlock(&event_list->rwl);
+      return 1;
+    }
+
+    if (current == to) {
+      break;
+    }
+
+    current = current->next;
+  }
+
+  pthread_rwlock_unlock(&event_list->rwl);
+  return 0;
 }
