@@ -98,4 +98,93 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   return result;
 }
 
-// Similar modifications for ems_reserve, ems_show, and ems_list_events
+int ems_reserve(unsigned int event_id, size_t row, size_t col) {
+  // Send reserve request to server through named pipe
+  int req_fd = open(sessions[active_sessions - 1].req_pipe_path, O_WRONLY);
+  if (req_fd < 0) {
+    return 1;
+  }
+  char op_code = 4;
+  write(req_fd, &op_code, sizeof(char));
+  write(req_fd, &event_id, sizeof(unsigned int));
+  write(req_fd, &row, sizeof(size_t));
+  write(req_fd, &col, sizeof(size_t));
+
+  // Handle server response
+  int resp_fd = open(sessions[active_sessions - 1].resp_pipe_path, O_RDONLY);
+  if (resp_fd < 0) {
+    return 1;
+  }
+  int result;
+  read(resp_fd, &result, sizeof(int));
+
+  close(req_fd);
+  close(resp_fd);
+
+  return result;
+}
+
+int ems_show (unsigned int event_id) {
+  // Send show request to server through named pipe
+  int req_fd = open(sessions[active_sessions - 1].req_pipe_path, O_WRONLY);
+  if (req_fd < 0) {
+    return 1;
+  }
+  char op_code = 5;
+  write(req_fd, &op_code, sizeof(char));
+  write(req_fd, &event_id, sizeof(unsigned int));
+
+  // Handle server response
+  int resp_fd = open(sessions[active_sessions - 1].resp_pipe_path, O_RDONLY);
+  if (resp_fd < 0) {
+    return 1;
+  }
+  int result;
+  read(resp_fd, &result, sizeof(int));
+
+  close(req_fd);
+  close(resp_fd);
+
+  return result;
+}
+
+int ems_list_events(int out_fd) {
+  // Send list events request to server through named pipe
+  int req_fd = open(sessions[active_sessions - 1].req_pipe_path, O_WRONLY);
+  if (req_fd < 0) {
+    return 1;
+  }
+  char op_code = 6;
+  write(req_fd, &op_code, sizeof(char));
+
+  // Handle server response
+  int resp_fd = open(sessions[active_sessions - 1].resp_pipe_path, O_RDONLY);
+  if (resp_fd < 0) {
+    return 1;
+  }
+  int result;
+  read(resp_fd, &result, sizeof(int));
+
+  // Read events from server and write them to out_fd
+  if (result == 0) {
+    size_t num_events;
+    read(resp_fd, &num_events, sizeof(size_t));
+    for (size_t i = 0; i < num_events; i++) {
+      unsigned int event_id;
+      size_t num_rows, num_cols, num_coords;
+      read(resp_fd, &event_id, sizeof(unsigned int));
+      read(resp_fd, &num_rows, sizeof(size_t));
+      read(resp_fd, &num_cols, sizeof(size_t));
+      read(resp_fd, &num_coords, sizeof(size_t));
+      write(out_fd, &event_id, sizeof(unsigned int));
+      write(out_fd, &num_rows, sizeof(size_t));
+      write(out_fd, &num_cols, sizeof(size_t));
+      write(out_fd, &num_coords, sizeof(size_t));
+    }
+  }
+
+  close(req_fd);
+  close(resp_fd);
+
+  return result;
+}

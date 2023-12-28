@@ -1,123 +1,126 @@
 #include <fcntl.h>
-#include <stdio.h>
+#include <pthread.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
-#include "api.h"
-#include "common/constants.h"
-#include "parser.h"
+#define S 10
+#define MAX_PATH 40
 
-int main(int argc, char* argv[]) {
-  if (argc < 5) {
-    fprintf(stderr, "Usage: %s <request pipe path> <response pipe path> <server pipe path> <.jobs file path>\n",
-            argv[0]);
-    return 1;
-  }
+typedef struct {
+  int session_id;
+  char req_pipe_path[MAX_PATH];
+  char resp_pipe_path[MAX_PATH];
+} Session;
 
-  if (ems_setup(argv[1], argv[2], argv[3])) {
-    fprintf(stderr, "Failed to set up EMS\n");
-    return 1;
-  }
+Session sessions[S];
+int active_sessions = 0;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-  const char* dot = strrchr(argv[4], '.');
-  if (dot == NULL || dot == argv[4] || strlen(dot) != 5 || strcmp(dot, ".jobs") ||
-      strlen(argv[4]) > MAX_JOB_FILE_NAME_SIZE) {
-    fprintf(stderr, "The provided .jobs file path is not valid. Path: %s\n", argv[1]);
-    return 1;
-  }
+void *handle_client(void *arg) {
+  Session *session = (Session *)arg;
 
-  char out_path[MAX_JOB_FILE_NAME_SIZE];
-  strcpy(out_path, argv[4]);
-  strcpy(strrchr(out_path, '.'), ".out");
+  // Open client request and response pipes
+  int req_fd = open(session->req_pipe_path, O_RDONLY);
+  int resp_fd = open(session->resp_pipe_path, O_WRONLY);
 
-  int in_fd = open(argv[4], O_RDONLY);
-  if (in_fd == -1) {
-    fprintf(stderr, "Failed to open input file. Path: %s\n", argv[4]);
-    return 1;
-  }
-
-  int out_fd = open(out_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-  if (out_fd == -1) {
-    fprintf(stderr, "Failed to open output file. Path: %s\n", out_path);
-    return 1;
-  }
-
-  while (1) {
-    unsigned int event_id;
-    size_t num_rows, num_columns, num_coords;
-    unsigned int delay = 0;
-    size_t xs[MAX_RESERVATION_SIZE], ys[MAX_RESERVATION_SIZE];
-
-    switch (get_next(in_fd)) {
-      case CMD_CREATE:
-        if (parse_create(in_fd, &event_id, &num_rows, &num_columns) != 0) {
-          fprintf(stderr, "Invalid command. See HELP for usage\n");
-          continue;
+  // Handle client requests
+  char op_code;
+  while (read(req_fd, &op_code, sizeof(char)) > 0) {
+    switch (op_code) {
+      case 1:  // ems_setup
+        write(resp_fd, &session->session_id, sizeof(int));
+        break;
+      case 2:  // ems_quit
+        close(req_fd);
+        close(resp_fd);
+        pthread_mutex_lock(&mutex);
+        active_sessions--;
+        pthread_mutex_unlock(&mutex);
+        pthread_exit(NULL);
+        break;
+      case 3:  // ems_create
+        unsigned int event_id;
+        size_t num_rows, num_cols;
+        read(req_fd, &event_id, sizeof(unsigned int));
+        read(req_fd, &num_rows, sizeof(size_t));
+        read(req_fd, &num_cols, sizeof(size_t));
+        int result = ems_create(event_id, num_rows, num_cols);
+        write(resp_fd, &result, sizeof(int));
+        break;
+      case 4:  // ems_reserve
+        unsigned int event_id;
+        size_t num_seats;
+        read(req_fd, &event_id, sizeof(unsigned int));
+        read(req_fd, &num_seats, sizeof(size_t));
+        size_t xs[num_seats], ys[num_seats];
+        read(req_fd, xs, num_seats * sizeof(size_t));
+        read(req_fd, ys, num_seats * sizeof(size_t));
+        int result = ems_reserve(event_id, num_seats, xs, ys);
+        write(resp_fd, &result, sizeof(int));
+        break;
+      case 5:  // ems_show
+        unsigned int event_id;
+        read(req_fd, &event_id, sizeof(unsigned int));
+        size_t num_rows, num_cols;
+        unsigned int *seats;
+        int result = ems_show(event_id, &num_rows, &num_cols, &seats);
+        write(resp_fd, &result, sizeof(int));
+        if (result == 0) {
+          write(resp_fd, &num_rows, sizeof(size_t));
+          write(resp_fd, &num_cols, sizeof(size_t));
+          write(resp_fd, seats, num_rows * num_cols * sizeof(unsigned int));
         }
-
-        if (ems_create(event_id, num_rows, num_columns)) fprintf(stderr, "Failed to create event\n");
+        free(seats);
         break;
-
-      case CMD_RESERVE:
-        num_coords = parse_reserve(in_fd, MAX_RESERVATION_SIZE, &event_id, xs, ys);
-
-        if (num_coords == 0) {
-          fprintf(stderr, "Invalid command. See HELP for usage\n");
-          continue;
+      case 6:  // ems_list_events
+        size_t num_events;
+        unsigned int *event_ids;
+        int result = ems_list_events(&num_events, &event_ids);
+        write(resp_fd, &result, sizeof(int));
+        if (result == 0) {
+          write(resp_fd, &num_events, sizeof(size_t));
+          write(resp_fd, event_ids, num_events * sizeof(unsigned int));
         }
-
-        if (ems_reserve(event_id, num_coords, xs, ys)) fprintf(stderr, "Failed to reserve seats\n");
+        free(event_ids);
         break;
-
-      case CMD_SHOW:
-        if (parse_show(in_fd, &event_id) != 0) {
-          fprintf(stderr, "Invalid command. See HELP for usage\n");
-          continue;
-        }
-
-        if (ems_show(out_fd, event_id)) fprintf(stderr, "Failed to show event\n");
-        break;
-
-      case CMD_LIST_EVENTS:
-        if (ems_list_events(out_fd)) fprintf(stderr, "Failed to list events\n");
-        break;
-
-      case CMD_WAIT:
-        if (parse_wait(in_fd, &delay, NULL) == -1) {
-            fprintf(stderr, "Invalid command. See HELP for usage\n");
-            continue;
-        }
-
-        if (delay > 0) {
-            printf("Waiting...\n");
-            sleep(delay);
-        }
-        break;
-
-      case CMD_INVALID:
-        fprintf(stderr, "Invalid command. See HELP for usage\n");
-        break;
-
-      case CMD_HELP:
-        printf(
-            "Available commands:\n"
-            "  CREATE <event_id> <num_rows> <num_columns>\n"
-            "  RESERVE <event_id> [(<x1>,<y1>) (<x2>,<y2>) ...]\n"
-            "  SHOW <event_id>\n"
-            "  LIST\n"
-            "  WAIT <delay_ms>\n"
-            "  HELP\n");
-
-        break;
-
-      case CMD_EMPTY:
-        break;
-
-      case EOC:
-        close(in_fd);
-        close(out_fd);
-        ems_quit();
-        return 0;
+        // Handle other operations...
     }
   }
+
+  return NULL;
+}
+
+int main(int argc, char *argv[]) {
+  if (argc != 2) {
+    printf("Usage: %s server_pipe_path\n", argv[0]);
+    return 1;
+  }
+
+  // Create server pipe
+  mkfifo(argv[1], 0666);
+
+  // Accept client connections
+  int server_fd = open(argv[1], O_RDONLY);
+  while (1) {
+    char req_pipe_path[MAX_PATH], resp_pipe_path[MAX_PATH];
+    if (read(server_fd, req_pipe_path, MAX_PATH) > 0 && read(server_fd, resp_pipe_path, MAX_PATH) > 0) {
+      pthread_mutex_lock(&mutex);
+      if (active_sessions >= S) {
+        pthread_mutex_unlock(&mutex);
+        continue;
+      }
+      sessions[active_sessions].session_id = active_sessions;
+      strcpy(sessions[active_sessions].req_pipe_path, req_pipe_path);
+      strcpy(sessions[active_sessions].resp_pipe_path, resp_pipe_path);
+      active_sessions++;
+      pthread_mutex_unlock(&mutex);
+
+      // Start a new thread to handle the client
+      pthread_t thread;
+      pthread_create(&thread, NULL, handle_client, &sessions[active_sessions - 1]);
+    }
+  }
+
+  return 0;
 }
