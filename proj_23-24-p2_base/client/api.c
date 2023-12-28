@@ -124,7 +124,7 @@ int ems_reserve(unsigned int event_id, size_t row, size_t col) {
   return result;
 }
 
-int ems_show (unsigned int event_id) {
+int ems_show(unsigned int event_id) {
   // Send show request to server through named pipe
   int req_fd = open(sessions[active_sessions - 1].req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
@@ -148,7 +148,7 @@ int ems_show (unsigned int event_id) {
   return result;
 }
 
-int ems_list_events(int out_fd) {
+int ems_list_events() {
   // Send list events request to server through named pipe
   int req_fd = open(sessions[active_sessions - 1].req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
@@ -176,10 +176,6 @@ int ems_list_events(int out_fd) {
       read(resp_fd, &num_rows, sizeof(size_t));
       read(resp_fd, &num_cols, sizeof(size_t));
       read(resp_fd, &num_coords, sizeof(size_t));
-      write(out_fd, &event_id, sizeof(unsigned int));
-      write(out_fd, &num_rows, sizeof(size_t));
-      write(out_fd, &num_cols, sizeof(size_t));
-      write(out_fd, &num_coords, sizeof(size_t));
     }
   }
 
