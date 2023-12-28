@@ -61,13 +61,6 @@ void* handle_client(void* args) {
 
   while (read(request_pipe, &op_code, sizeof(op_code)) > 0 && op_code != 2) {
     switch (op_code) {
-      case 1:  // ems_setup
-        // Handle ems_setup
-        char req_pipe_path[PATH_MAX];
-        char resp_pipe_path[PATH_MAX];
-        read(request_pipe, req_pipe_path, PATH_MAX);
-        read(request_pipe, resp_pipe_path, PATH_MAX);
-        break;
       case 2:  // ems_quit
         // Handle ems_quit
         break;

@@ -2,3 +2,6 @@ req client manda por req ((char) OP_CODE=3 | (unsigned int) event_id | (size_t) 
 server le da req 
 e server manda por resp o resultado da execucao sucesso/ buffer ((int) session_id), 
 client le da resp o buffer e printa pro .out se sucesso
+
+
+OUT_FD do server e resp pipe
