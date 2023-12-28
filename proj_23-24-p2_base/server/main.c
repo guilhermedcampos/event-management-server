@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "common/constants.h"
 #include "common/io.h"
@@ -24,6 +25,22 @@ int session_counter = 0;
 
 pthread_mutex_t sessions_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+
+
+// Function to remove a session
+void remove_session(int session_id) {
+  for (int i = 0; i < session_counter; i++) {
+    if (sessions[i].session_id == session_id) {
+      // Shift all sessions after this one up
+      for (int j = i; j < session_counter - 1; j++) {
+        sessions[j] = sessions[j + 1];
+      }
+      session_counter--;
+      break;
+    }
+  }
+}
+
 // Function to handle a client session in a separate thread
 void* handle_client(void* args) {
   int session_id = *((int*)args);
@@ -38,7 +55,11 @@ void* handle_client(void* args) {
 
   // Handle client requests
   char op_code;
-  while (read(client_pipe, &op_code, sizeof(op_code)) > 0) {
+  unsigned int event_id;
+  size_t num_rows, num_cols, num_seats;
+  size_t xs[num_seats], ys[num_seats];  // Assuming a maximum number of seats
+
+  while (read(client_pipe, &op_code, sizeof(op_code)) > 0 && op_code != 2) {
     switch (op_code) {
       case 1:  // ems_setup
         // Handle ems_setup
@@ -49,12 +70,9 @@ void* handle_client(void* args) {
         break;
       case 2:  // ems_quit
         // Handle ems_quit
-        ems_quit();  // Assuming this function exists
         break;
       case 3:  // ems_create
         // Handle ems_create
-        unsigned int event_id;
-        size_t num_rows, num_cols;
         read(client_pipe, &event_id, sizeof(event_id));
         read(client_pipe, &num_rows, sizeof(num_rows));
         read(client_pipe, &num_cols, sizeof(num_cols));
@@ -62,18 +80,14 @@ void* handle_client(void* args) {
         break;
       case 4:  // ems_reserve
         // Handle ems_reserve
-        unsigned int event_id;
-        size_t num_seats;
         read(client_pipe, &event_id, sizeof(event_id));
         read(client_pipe, &num_seats, sizeof(num_seats));
-        size_t xs[num_seats], ys[num_seats];
         read(client_pipe, xs, num_seats * sizeof(size_t));
         read(client_pipe, ys, num_seats * sizeof(size_t));
         ems_reserve(event_id, num_seats, xs, ys);  // Assuming this function exists
         break;
       case 5:  // ems_show
         // Handle ems_show
-        unsigned int event_id;
         read(client_pipe, &event_id, sizeof(event_id));
         ems_show(response_pipe, event_id);  // Assuming this function exists
         break;
@@ -121,20 +135,6 @@ void associate_session(int session_id, char* request_pipe_path, char* response_p
 void decrement_active_sessions_count() {
   if (session_counter > 0) {
     session_counter--;
-  }
-}
-
-// Function to remove a session
-void remove_session(int session_id) {
-  for (int i = 0; i < session_counter; i++) {
-    if (sessions[i].session_id == session_id) {
-      // Shift all sessions after this one up
-      for (int j = i; j < session_counter - 1; j++) {
-        sessions[j] = sessions[j + 1];
-      }
-      session_counter--;
-      break;
-    }
   }
 }
 
@@ -241,6 +241,6 @@ int main(int argc, char* argv[]) {
 
   // TODO: Close Server
   close(server_fd);
-  unlink(pipe_path);  // Remove the named pipe
+  unlink(server_pipe_path);  // Remove the named pipe
   ems_terminate();
 }
