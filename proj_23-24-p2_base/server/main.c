@@ -12,8 +12,14 @@
 
 #define MAX_SESSIONS 3
 
-// Assuming this is a global variable
-static int session_counter = 0;
+typedef struct {
+  int session_id;
+  char client_pipe_path[PATH_MAX];
+  char response_pipe_path[PATH_MAX];
+} Session;
+
+Session sessions[MAX_SESSIONS];
+int session_counter = 0;
 
 // Function to allocate a unique session ID
 int allocate_unique_session_id() {
@@ -22,10 +28,35 @@ int allocate_unique_session_id() {
   return session_counter;
 }
 
+// Function to associate a session with client pipes
+void associate_session(int session_id, char* client_pipe_path, char* response_pipe_path) {
+  if (session_counter < MAX_SESSIONS) {
+    sessions[session_counter].session_id = session_id;
+    strncpy(sessions[session_counter].client_pipe_path, client_pipe_path, PATH_MAX);
+    strncpy(sessions[session_counter].response_pipe_path, response_pipe_path, PATH_MAX);
+  } else {
+    printf("Max sessions reached, cannot add more sessions.\n");
+  }
+}
+
 // Function to decrement the active session count
 void decrement_active_sessions_count() {
   if (session_counter > 0) {
     session_counter--;
+  }
+}
+
+// Function to remove a session
+void remove_session(int session_id) {
+  for (int i = 0; i < session_counter; i++) {
+    if (sessions[i].session_id == session_id) {
+      // Shift all sessions after this one up
+      for (int j = i; j < session_counter - 1; j++) {
+        sessions[j] = sessions[j + 1];
+      }
+      session_counter--;
+      break;
+    }
   }
 }
 
@@ -76,12 +107,6 @@ int main(int argc, char* argv[]) {
   // TODO: Intialize server, create worker threads
 
   while (1) {
-    // TODO: Read from pipe
-
-    while (get_active_sessions_count() >= MAX_SESSIONS) {
-      sleep(1);  // Adjust the sleep duration as needed
-    }
-
     // Read from the pipe to get client session initiation request
     char client_pipe_path[PATH_MAX];
     if (read(server_fd, client_pipe_path, sizeof(client_pipe_path)) == -1) {
@@ -96,9 +121,9 @@ int main(int argc, char* argv[]) {
       break;
     }
 
-    // TODO: Handle session initiation
+    // Handle session initiation
     // Assign a unique session_id, associate pipes, and respond with the session_id
-    int session_id = allocate_unique_session_id();  // Implement your own logic for generating a unique session_id
+    int session_id = allocate_unique_session_id();
 
     if (session_id == -1) {
       perror("Error allocating session ID");
@@ -116,8 +141,7 @@ int main(int argc, char* argv[]) {
 
     // TODO: Write new client to the producer-consumer buffer
     // Write new client to the producer-consumer buffer
-    write_to_buffer(session_id, client_pipe_path,
-                    response_pipe_path);  
+    write_to_buffer(session_id, client_pipe_path, response_pipe_path);
   }
 
   // TODO: Close Server
