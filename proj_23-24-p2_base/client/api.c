@@ -104,17 +104,20 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   return result;
 }
 
-int ems_reserve(unsigned int event_id, size_t row, size_t col) {
+int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys) {
   // Send reserve request to server through named pipe
   int req_fd = open(sessions[active_sessions - 1].req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
     return 1;
   }
+
   char op_code = 4;
   write(req_fd, &op_code, sizeof(char));
   write(req_fd, &event_id, sizeof(unsigned int));
-  write(req_fd, &row, sizeof(size_t));
-  write(req_fd, &col, sizeof(size_t));
+  write(req_fd, &num_seats, sizeof(size_t));
+  write(req_fd, xs, num_seats * sizeof(size_t));
+  write(req_fd, ys, num_seats * sizeof(size_t));
+
 
   // Handle server response
   int resp_fd = open(sessions[active_sessions - 1].resp_pipe_path, O_RDONLY);
@@ -192,6 +195,12 @@ int ems_list_events(int out_fd) {
   int result;
   read(resp_fd, &result, sizeof(int));
 
+  if (result == 1) {
+    perror("Server couldnt list events.");
+  }
+
+  write(out_fd, "Events:", strlen("Events: "));
+
   // Read events from server and write them to out_fd
   if (result == 0) {
     size_t num_events;
@@ -200,9 +209,8 @@ int ems_list_events(int out_fd) {
       unsigned int event_id;
       size_t num_rows, num_cols, num_coords;
       read(resp_fd, &event_id, sizeof(unsigned int));
-      read(resp_fd, &num_rows, sizeof(size_t));
-      read(resp_fd, &num_cols, sizeof(size_t));
-      read(resp_fd, &num_coords, sizeof(size_t));
+      write(out_fd, " ", strlen(" "));
+      write(out_fd, &event_id , sizeof(unsigned int));
     }
   }
 

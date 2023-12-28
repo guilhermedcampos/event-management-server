@@ -233,8 +233,8 @@ int ems_show(int out_fd, unsigned int event_id) {
   fclose(stream);  // This updates buffer and buffer_len
 
   // If everything was successful, write a 0 followed by the answer
-  char success_code[] = "0\n";
-  write(out_fd, success_code, strlen(success_code));
+  int success_code = 0;
+  write(out_fd, success_code, sizeof(int));
   write(out_fd, buffer, buffer_len);
 
   free(buffer);
@@ -243,16 +243,10 @@ int ems_show(int out_fd, unsigned int event_id) {
 
 int ems_list_events(int out_fd) {
 
-  char* buffer = NULL;
-  size_t buffer_len = 0;
-  FILE* stream = open_memstream(&buffer, &buffer_len);
-
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
     
     write(out_fd, error_code, strlen(error_code));
-    fclose(stream);
-    free(buffer);
     return 1;
   }
 
@@ -260,8 +254,6 @@ int ems_list_events(int out_fd) {
     fprintf(stderr, "Error locking list rwl\n");
     
     write(out_fd, error_code, strlen(error_code));
-    fclose(stream);
-    free(buffer);
     return 1;
   }
 
@@ -269,22 +261,15 @@ int ems_list_events(int out_fd) {
   struct ListNode* current = event_list->head;
 
   if (current == NULL) {
-    char buff[] = "No events";
-    if (print_str(out_fd, buff)) {
-      perror("Error writing to file descriptor");
-      pthread_rwlock_unlock(&event_list->rwl);
-      write(out_fd, 1, strlen(1));
-      return 1;
-    }
 
-    write(out_fd, 1, strlen(1));
-    write(out_fd, "No events", strlen("No events"));
+    write(out_fd, 1, sizeof(int));
+    //write(out_fd, "No events", strlen("No events"));
     pthread_rwlock_unlock(&event_list->rwl);
-    return 0;
+    return 1;
   }
 
   // If there are events, write 0 followed by the number of events followed by the event ids
-  write(out_fd, "0", 1);
+  write(out_fd, 0, sizeof(int));
   size_t num_events = 0;
   while (1) {
     num_events++;
