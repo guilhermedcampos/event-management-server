@@ -176,12 +176,27 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
 int ems_show(int out_fd, unsigned int event_id) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
+
+    // In case of an error, send error code to client
+    char buff[] = "1\n";
+    if (print_str(out_fd, buff)) {
+      perror("Error writing to file descriptor");
+      return 1;
+    }
+
     return 1;
   }
 
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
     fprintf(stderr, "Error locking list rwl\n");
     return 1;
+
+    // In case of an error, send error code to client
+    char buff[] = "1\n";
+    if (print_str(out_fd, buff)) {
+      perror("Error writing to file descriptor");
+      return 1;
+    }
   }
 
   struct Event* event = get_event_with_delay(event_id, event_list->head, event_list->tail);
@@ -190,11 +205,25 @@ int ems_show(int out_fd, unsigned int event_id) {
 
   if (event == NULL) {
     fprintf(stderr, "Event not found\n");
+
+    // In case of an error, send error code to client
+    char buff[] = "1\n";
+    if (print_str(out_fd, buff)) {
+      perror("Error writing to file descriptor");
+      return 1;
+    }
     return 1;
   }
 
   if (pthread_mutex_lock(&event->mutex) != 0) {
     fprintf(stderr, "Error locking mutex\n");
+
+    // In case of an error, send error code to client
+    char buff[] = "1\n";
+    if (print_str(out_fd, buff)) {
+      perror("Error writing to file descriptor");
+      return 1;
+    }
     return 1;
   }
 
@@ -232,11 +261,25 @@ int ems_show(int out_fd, unsigned int event_id) {
 int ems_list_events(int out_fd) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
+
+    // In case of an error, send error code to client
+    char buff[] = "1\n";
+    if (print_str(out_fd, buff)) {
+      perror("Error writing to file descriptor");
+      return 1;
+    }
     return 1;
   }
 
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
     fprintf(stderr, "Error locking list rwl\n");
+
+    // In case of an error, send error code to client
+    char buff[] = "1\n";
+    if (print_str(out_fd, buff)) {
+      perror("Error writing to file descriptor");
+      return 1;
+    }
     return 1;
   }
 
