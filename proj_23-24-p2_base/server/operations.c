@@ -9,7 +9,8 @@
 
 static struct EventList* event_list = NULL;
 static unsigned int state_access_delay_us = 0;
-char error_code[] = "1\n";
+char error_code = 1;
+char success_code = 0;
 
 /// Gets the event with the given ID from the state.
 /// @note Will wait to simulate a real system accessing a costly memory resource.
@@ -182,7 +183,7 @@ int ems_show(int out_fd, unsigned int event_id) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
     
-    write(out_fd, error_code, strlen(error_code));
+    write(out_fd, &error_code, sizeof(char));
     fclose(stream);
     free(buffer);
     return 1;
@@ -191,7 +192,7 @@ int ems_show(int out_fd, unsigned int event_id) {
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
     fprintf(stderr, "Error locking list rwl\n");
     
-    write(out_fd, error_code, strlen(error_code));
+    write(out_fd, &error_code, sizeof(char));
     fclose(stream);
     free(buffer);
     return 1;
@@ -203,7 +204,7 @@ int ems_show(int out_fd, unsigned int event_id) {
   if (event == NULL) {
     fprintf(stderr, "Event not found\n");
     
-    write(out_fd, error_code, strlen(error_code));
+    write(out_fd, &error_code, sizeof(char));
     fclose(stream);
     free(buffer);
     return 1;
@@ -212,7 +213,7 @@ int ems_show(int out_fd, unsigned int event_id) {
   if (pthread_mutex_lock(&event->mutex) != 0) {
     fprintf(stderr, "Error locking mutex\n");
     
-    write(out_fd, error_code, strlen(error_code));
+    write(out_fd, &error_code, sizeof(char));
     fclose(stream);
     free(buffer);
     return 1;
@@ -233,8 +234,7 @@ int ems_show(int out_fd, unsigned int event_id) {
   fclose(stream);  // This updates buffer and buffer_len
 
   // If everything was successful, write a 0 followed by the answer
-  int success_code = 0;
-  write(out_fd, success_code, sizeof(int));
+  write(out_fd, &success_code, sizeof(char));
   write(out_fd, buffer, buffer_len);
 
   free(buffer);
@@ -246,14 +246,14 @@ int ems_list_events(int out_fd) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
     
-    write(out_fd, error_code, strlen(error_code));
+    write(out_fd, &error_code, sizeof(char));
     return 1;
   }
 
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
     fprintf(stderr, "Error locking list rwl\n");
     
-    write(out_fd, error_code, strlen(error_code));
+    write(out_fd, &error_code, sizeof(char));
     return 1;
   }
 
@@ -262,14 +262,14 @@ int ems_list_events(int out_fd) {
 
   if (current == NULL) {
 
-    write(out_fd, 1, sizeof(int));
+    write(out_fd, &error_code, sizeof(char));
     //write(out_fd, "No events", strlen("No events"));
     pthread_rwlock_unlock(&event_list->rwl);
     return 1;
   }
 
   // If there are events, write 0 followed by the number of events followed by the event ids
-  write(out_fd, 0, sizeof(int));
+  write(out_fd, &success_code, sizeof(char));
   size_t num_events = 0;
   while (1) {
     num_events++;
@@ -281,10 +281,10 @@ int ems_list_events(int out_fd) {
     current = current->next;
   }
 
-  write(out_fd, num_events, sizeof(size_t));
+  write(out_fd, &num_events, sizeof(size_t));
 
   while (1) {
-    write(out_fd, (current->event)->id, sizeof(unsigned int));
+    write(out_fd, &(current->event)->id, sizeof(unsigned int));
     if (current == to) {
       break;
     }

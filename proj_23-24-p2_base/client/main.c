@@ -31,8 +31,7 @@ int main(int argc, char* argv[]) {
   char* response_pipe = "response_pipe";
 
   // Create a session with the server
-  int session_id = ems_setup(request_pipe, response_pipe, argv[3]);
-  if (session_id == -1) {
+  if (ems_setup(request_pipe, response_pipe, argv[3]) == 1) {
     fprintf(stderr, "Failed to setup session\n");
     return 1;
   }
@@ -41,12 +40,14 @@ int main(int argc, char* argv[]) {
   strcpy(out_path, argv[4]);
   strcpy(strrchr(out_path, '.'), ".out");
 
+  // Open input file
   int in_fd = open(argv[4], O_RDONLY);
   if (in_fd == -1) {
     fprintf(stderr, "Failed to open input file. Path: %s\n", argv[4]);
     return 1;
   }
 
+  // Open output file
   int out_fd = open(out_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
   if (out_fd == -1) {
     fprintf(stderr, "Failed to open output file. Path: %s\n", out_path);

@@ -14,13 +14,13 @@
 
 #define MAX_SESSIONS 3
 
-typedef struct {
+struct Session {
   int session_id;
   char request_pipe_path[PATH_MAX];
   char response_pipe_path[PATH_MAX];
-} Session;
+};
 
-Session sessions[MAX_SESSIONS];
+struct Session sessions[MAX_SESSIONS];
 int session_counter = 0;
 
 pthread_mutex_t sessions_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -43,14 +43,14 @@ void remove_session(int session_id) {
 
 // Function to handle a client session in a separate thread
 void* handle_client(void* args) {
-  Session *thread_data = (struct ThreadData *)args;
+  struct Session *thread_data = (struct Session *)args;
   printf("Handling session %d\n", thread_data->session_id);
 
   // Open the client's request and response pipes
   char request_pipe_path[PATH_MAX];
   char response_pipe_path[PATH_MAX];
-  
-  int client_pipe = open(request_pipe_path, O_RDONLY);
+
+  int request_pipe = open(request_pipe_path, O_RDONLY);
   int response_pipe = open(response_pipe_path, O_WRONLY);
 
   // Handle client requests
@@ -59,36 +59,36 @@ void* handle_client(void* args) {
   size_t num_rows, num_cols, num_seats;
   size_t xs[num_seats], ys[num_seats];  // Assuming a maximum number of seats
 
-  while (read(client_pipe, &op_code, sizeof(op_code)) > 0 && op_code != 2) {
+  while (read(request_pipe, &op_code, sizeof(op_code)) > 0 && op_code != 2) {
     switch (op_code) {
       case 1:  // ems_setup
         // Handle ems_setup
         char req_pipe_path[PATH_MAX];
         char resp_pipe_path[PATH_MAX];
-        read(client_pipe, req_pipe_path, PATH_MAX);
-        read(client_pipe, resp_pipe_path, PATH_MAX);
+        read(request_pipe, req_pipe_path, PATH_MAX);
+        read(request_pipe, resp_pipe_path, PATH_MAX);
         break;
       case 2:  // ems_quit
         // Handle ems_quit
         break;
       case 3:  // ems_create
         // Handle ems_create
-        read(client_pipe, &event_id, sizeof(event_id));
-        read(client_pipe, &num_rows, sizeof(num_rows));
-        read(client_pipe, &num_cols, sizeof(num_cols));
+        read(request_pipe, &event_id, sizeof(event_id));
+        read(request_pipe, &num_rows, sizeof(num_rows));
+        read(request_pipe, &num_cols, sizeof(num_cols));
         ems_create(event_id, num_rows, num_cols);  // Assuming this function exists
         break;
       case 4:  // ems_reserve
         // Handle ems_reserve
-        read(client_pipe, &event_id, sizeof(event_id));
-        read(client_pipe, &num_seats, sizeof(num_seats));
-        read(client_pipe, xs, num_seats * sizeof(size_t));
-        read(client_pipe, ys, num_seats * sizeof(size_t));
+        read(request_pipe, &event_id, sizeof(event_id));
+        read(request_pipe, &num_seats, sizeof(num_seats));
+        read(request_pipe, xs, num_seats * sizeof(size_t));
+        read(request_pipe, ys, num_seats * sizeof(size_t));
         ems_reserve(event_id, num_seats, xs, ys);  // Assuming this function exists
         break;
       case 5:  // ems_show
         // Handle ems_show
-        read(client_pipe, &event_id, sizeof(event_id));
+        read(request_pipe, &event_id, sizeof(event_id));
         ems_show(response_pipe, event_id);  // Assuming this function exists
         break;
       case 6:  // ems_list_events
@@ -102,14 +102,14 @@ void* handle_client(void* args) {
   }
 
   // Close the pipes
-  close(client_pipe);
+  close(request_pipe);
   close(response_pipe);
 
   pthread_mutex_lock(&sessions_mutex);
-  remove_session(session_id);  // Remove the session after it's handled
+  remove_session(thread_data->session_id);  // Remove the session after it's handled
   pthread_mutex_unlock(&sessions_mutex);
 
-  printf("Session %d handled\n", session_id);
+  printf("Session %d handled\n", thread_data->session_id);
   pthread_exit(NULL);
 }
 
@@ -224,13 +224,13 @@ int main(int argc, char* argv[]) {
   // TODO: Intialize server, create worker threads
 
   pthread_t threads[MAX_SESSIONS];  // Array to store thread IDs
-  Session thread_args[MAX_SESSIONS];    // Array to store thread arguments (session IDs, request and response pipe paths)
+  struct Session thread_args[MAX_SESSIONS];    // Array to store thread arguments (session IDs, request and response pipe paths)
 
   // Create worker threads for each session
   for (int i = 0; i < MAX_SESSIONS; ++i) {
     thread_args[i].session_id = sessions[i].session_id;  // Allocate unique session ID for each thread
-    thread_args[i].request_pipe_path = sessions[i].request_pipe_path;
-    thread_args[i].response_pipe_path = sessions[i].response_pipe_path;
+    snprintf(thread_args[i].request_pipe_path, strlen(sessions[i].request_pipe_path), "%s", sessions[i].request_pipe_path);
+    snprintf(thread_args[i].response_pipe_path, strlen(sessions[i].response_pipe_path), "%s", sessions[i].response_pipe_path);
     if (pthread_create(&threads[i], NULL, handle_client, (void *)&thread_args[i]) != 0) {
       perror("Error creating thread");
       return 1;

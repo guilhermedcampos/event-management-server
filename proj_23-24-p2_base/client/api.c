@@ -208,7 +208,6 @@ int ems_list_events(int out_fd) {
     read(resp_fd, &num_events, sizeof(size_t));
     for (size_t i = 0; i < num_events; i++) {
       unsigned int event_id;
-      size_t num_rows, num_cols, num_coords;
       read(resp_fd, &event_id, sizeof(unsigned int));
       write(out_fd, " ", strlen(" "));
       write(out_fd, &event_id, sizeof(unsigned int));
