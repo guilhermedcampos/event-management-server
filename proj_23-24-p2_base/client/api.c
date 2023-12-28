@@ -78,6 +78,8 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   if (req_fd < 0) {
     return 1;
   }
+
+  // Send create request
   char op_code = 3;
   write(req_fd, &op_code, sizeof(char));
   write(req_fd, &event_id, sizeof(unsigned int));
@@ -91,6 +93,10 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   }
   int result;
   read(resp_fd, &result, sizeof(int));
+
+  if (result == 1) {
+    perror("Server couldnt create.");
+  }
 
   close(req_fd);
   close(resp_fd);
@@ -118,6 +124,10 @@ int ems_reserve(unsigned int event_id, size_t row, size_t col) {
   int result;
   read(resp_fd, &result, sizeof(int));
 
+  if (result == 1) {
+    perror("Server couldnt reserve.");
+  }
+
   close(req_fd);
   close(resp_fd);
 
@@ -141,6 +151,23 @@ int ems_show(int out_fd, int event_id) {
   }
   int result;
   read(resp_fd, &result, sizeof(int));
+
+  if (result == 1) {
+    perror("Server couldnt show.");
+  }
+
+  size_t num_rows;
+  size_t num_cols;
+  read(resp_fd, &num_rows, sizeof(size_t));
+  read(resp_fd, &num_cols, sizeof(size_t));
+
+  for (size_t i = 0; i < num_rows; i++) {
+    for (size_t j = 0; j < num_cols; j++) {
+      int seat;
+      read(resp_fd, &seat, sizeof(unsigned int));
+      write(out_fd, &seat, sizeof(unsigned int));
+    }
+  }
 
   close(req_fd);
   close(resp_fd);
