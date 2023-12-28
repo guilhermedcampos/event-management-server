@@ -174,112 +174,84 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
 }
 
 int ems_show(int out_fd, unsigned int event_id) {
+  char* buffer = NULL;
+  size_t buffer_len = 0;
+  FILE* stream = open_memstream(&buffer, &buffer_len);
+
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
-
-    // In case of an error, send error code to client
-    char buff[] = "1\n";
-    if (print_str(out_fd, buff)) {
-      perror("Error writing to file descriptor");
-      return 1;
-    }
-
+    char error_code[] = "1\n";
+    write(out_fd, error_code, strlen(error_code));
+    fclose(stream);
+    free(buffer);
     return 1;
   }
 
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
     fprintf(stderr, "Error locking list rwl\n");
+    char error_code[] = "1\n";
+    write(out_fd, error_code, strlen(error_code));
+    fclose(stream);
+    free(buffer);
     return 1;
-
-    // In case of an error, send error code to client
-    char buff[] = "1\n";
-    if (print_str(out_fd, buff)) {
-      perror("Error writing to file descriptor");
-      return 1;
-    }
   }
 
   struct Event* event = get_event_with_delay(event_id, event_list->head, event_list->tail);
-
   pthread_rwlock_unlock(&event_list->rwl);
 
   if (event == NULL) {
     fprintf(stderr, "Event not found\n");
-
-    // In case of an error, send error code to client
-    char buff[] = "1\n";
-    if (print_str(out_fd, buff)) {
-      perror("Error writing to file descriptor");
-      return 1;
-    }
+    char error_code[] = "1\n";
+    write(out_fd, error_code, strlen(error_code));
+    fclose(stream);
+    free(buffer);
     return 1;
   }
 
   if (pthread_mutex_lock(&event->mutex) != 0) {
     fprintf(stderr, "Error locking mutex\n");
-
-    // In case of an error, send error code to client
-    char buff[] = "1\n";
-    if (print_str(out_fd, buff)) {
-      perror("Error writing to file descriptor");
-      return 1;
-    }
+    char error_code[] = "1\n";
+    write(out_fd, error_code, strlen(error_code));
+    fclose(stream);
+    free(buffer);
     return 1;
   }
 
   for (size_t i = 1; i <= event->rows; i++) {
     for (size_t j = 1; j <= event->cols; j++) {
-      char buffer[16];
-      sprintf(buffer, "%u", event->data[seat_index(event, i, j)]);
-
-      if (print_str(out_fd, buffer)) {
-        perror("Error writing to file descriptor");
-        pthread_mutex_unlock(&event->mutex);
-        return 1;
-      }
-
+      fprintf(stream, "%u", event->data[seat_index(event, i, j)]);
       if (j < event->cols) {
-        if (print_str(out_fd, " ")) {
-          perror("Error writing to file descriptor");
-          pthread_mutex_unlock(&event->mutex);
-          return 1;
-        }
+        fprintf(stream, " ");
       }
     }
-
-    if (print_str(out_fd, "\n")) {
-      perror("Error writing to file descriptor");
-      pthread_mutex_unlock(&event->mutex);
-      return 1;
-    }
+    fprintf(stream, "\n");
   }
 
   pthread_mutex_unlock(&event->mutex);
+
+  fclose(stream);  // This updates buffer and buffer_len
+
+  // If everything was successful, write a 0 followed by the answer
+  char success_code[] = "0\n";
+  write(out_fd, success_code, strlen(success_code));
+  write(out_fd, buffer, buffer_len);
+
+  free(buffer);
   return 0;
 }
 
 int ems_list_events(int out_fd) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
-
-    // In case of an error, send error code to client
-    char buff[] = "1\n";
-    if (print_str(out_fd, buff)) {
-      perror("Error writing to file descriptor");
-      return 1;
-    }
+    char error_code[] = "1\n";
+    write(out_fd, error_code, strlen(error_code));
     return 1;
   }
 
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
     fprintf(stderr, "Error locking list rwl\n");
-
-    // In case of an error, send error code to client
-    char buff[] = "1\n";
-    if (print_str(out_fd, buff)) {
-      perror("Error writing to file descriptor");
-      return 1;
-    }
+    char error_code[] = "1\n";
+    write(out_fd, error_code, strlen(error_code));
     return 1;
   }
 
