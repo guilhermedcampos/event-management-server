@@ -23,6 +23,7 @@ int ems_setup(char const *req_pipe_path, char const *resp_pipe_path, char const 
   // Connect to server pipe
   int server_fd = open(server_pipe_path, O_WRONLY);
   if (server_fd < 0) {
+    printf("Failed to connect to server pipe.\n");
     return 1;
   }
 
@@ -35,6 +36,7 @@ int ems_setup(char const *req_pipe_path, char const *resp_pipe_path, char const 
   // Store session_id in session variable
   int resp_fd = open(resp_pipe_path, O_RDONLY);
   if (resp_fd < 0) {
+    printf("Failed to open response pipe.\n");
     return 1;
   }
   read(resp_fd, &session.session_id, sizeof(int));
