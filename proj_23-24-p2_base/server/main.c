@@ -186,6 +186,10 @@ int main(int argc, char* argv[]) {
     printf("Client connected\n");
     printf("Reading from server pipe...\n");
 
+    int op_code;
+    read(server_fd, &op_code, sizeof(int));
+    printf("Op code read\n");
+
     char request_pipe_path[PATH_MAX];
 
     if (read(server_fd, request_pipe_path, sizeof(request_pipe_path)) == -1) {
