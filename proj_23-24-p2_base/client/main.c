@@ -26,40 +26,36 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  // Create two named pipes for the session
-  char* request_pipe = "request_pipe";
-  char* response_pipe = "response_pipe";
-
-  // Create a session with the server
-  if (ems_setup(request_pipe, response_pipe, argv[3]) == 1) {
-    fprintf(stderr, "Failed to setup session\n");
-    return 1;
-  }
-
   char out_path[MAX_JOB_FILE_NAME_SIZE];
   strcpy(out_path, argv[4]);
   strcpy(strrchr(out_path, '.'), ".out");
 
   // Open input file
+  printf("Opening input file: %s\n", argv[4]);
   int in_fd = open(argv[4], O_RDONLY);
+  printf("Opened input file: %s\n", argv[4]);
   if (in_fd == -1) {
     fprintf(stderr, "Failed to open input file. Path: %s\n", argv[4]);
     return 1;
   }
 
   // Open output file
+  printf("Opening output file: %s\n", out_path);
   int out_fd = open(out_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+  printf("Opened output file: %s\n", out_path);
   if (out_fd == -1) {
     fprintf(stderr, "Failed to open output file. Path: %s\n", out_path);
     return 1;
   }
 
   while (1) {
+    printf("Waiting for command...\n");
     unsigned int event_id;
     size_t num_rows, num_columns, num_coords;
     unsigned int delay = 0;
     size_t xs[MAX_RESERVATION_SIZE], ys[MAX_RESERVATION_SIZE];
 
+    printf("Reading command...\n");
     switch (get_next(in_fd)) {
       case CMD_CREATE:
         if (parse_create(in_fd, &event_id, &num_rows, &num_columns) != 0) {
@@ -126,6 +122,7 @@ int main(int argc, char* argv[]) {
         break;
 
       case EOC:
+        printf("End of commands\n");
         close(in_fd);
         close(out_fd);
         ems_quit();

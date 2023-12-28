@@ -3,10 +3,10 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <string.h>
 
 #include "common/constants.h"
 #include "common/io.h"
@@ -25,8 +25,6 @@ int session_counter = 0;
 
 pthread_mutex_t sessions_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-
-
 // Function to remove a session
 void remove_session(int session_id) {
   for (int i = 0; i < session_counter; i++) {
@@ -43,7 +41,7 @@ void remove_session(int session_id) {
 
 // Function to handle a client session in a separate thread
 void* handle_client(void* args) {
-  struct Session *thread_data = (struct Session *)args;
+  struct Session* thread_data = (struct Session*)args;
   printf("Handling session %d\n", thread_data->session_id);
 
   // Open the client's request and response pipes
@@ -140,6 +138,9 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  printf("Starting server...\n");
+  printf("Server pipe path: %s\n", argv[1]);
+
   char* endptr;
   unsigned int state_access_delay_us = STATE_ACCESS_DELAY_US;
   if (argc == 3) {
@@ -153,49 +154,71 @@ int main(int argc, char* argv[]) {
     state_access_delay_us = (unsigned int)delay;
   }
 
+  printf("Initializing EMS...\n");
   if (ems_init(state_access_delay_us)) {
     fprintf(stderr, "Failed to initialize EMS\n");
     return 1;
   }
+  printf("EMS initialized\n");
 
   char* server_pipe_path = argv[1];
 
+  printf("Creating server pipe...\n");
   // Create a named pipe for reading
   if (mkfifo(server_pipe_path, 0666) == -1) {
     perror("Error creating named pipe");
     ems_terminate();
     return 1;
   }
+  printf("Server pipe created\n");
 
   // Open the named pipe for reading (blocking until a client connects)
+  printf("Opening server pipe...\n");
   int server_fd = open(server_pipe_path, O_RDONLY);
   if (server_fd == -1) {
     perror("Error opening named pipe for reading");
     ems_terminate();
     return 1;
   }
-
+  printf("Server pipe opened\n");
 
   // Loop to populate the sessions array with session IDs and associated pipes
   // while reading from server pipe isnt a blank space
+  printf("Waiting for clients...\n");
   while (read(server_fd, &server_fd, sizeof(server_fd)) != ' ') {
     // Read from the pipe to get client session initiation request
+    printf("Client connected\n");
+    printf("Reading from server pipe...\n");
+
     char request_pipe_path[PATH_MAX];
+
     if (read(server_fd, request_pipe_path, sizeof(request_pipe_path)) == -1) {
       perror("Error reading from named pipe");
       break;
     }
 
+    printf("Request pipe path: %s\n", request_pipe_path);
+
     // Obtain the second named pipe for the new session
+
+    printf("Reading from server pipe...\n");
+
     char response_pipe_path[PATH_MAX];
     if (read(server_fd, response_pipe_path, sizeof(response_pipe_path)) == -1) {
       perror("Error reading from named pipe");
       break;
     }
 
+    printf("Response pipe path: %s\n", response_pipe_path);
+
     // Handle session initiation
     // Assign a unique session_id, associate pipes, and respond with the session_id
+
+    printf("Allocating session ID...\n");
+
     int session_id = allocate_unique_session_id();
+
+    printf("Session ID: %d\n", session_id);
 
     if (session_id == -1) {
       perror("Error allocating session ID");
@@ -217,14 +240,17 @@ int main(int argc, char* argv[]) {
   // TODO: Intialize server, create worker threads
 
   pthread_t threads[MAX_SESSIONS];  // Array to store thread IDs
-  struct Session thread_args[MAX_SESSIONS];    // Array to store thread arguments (session IDs, request and response pipe paths)
+  struct Session
+      thread_args[MAX_SESSIONS];  // Array to store thread arguments (session IDs, request and response pipe paths)
 
   // Create worker threads for each session
   for (int i = 0; i < MAX_SESSIONS; ++i) {
     thread_args[i].session_id = sessions[i].session_id;  // Allocate unique session ID for each thread
-    snprintf(thread_args[i].request_pipe_path, strlen(sessions[i].request_pipe_path), "%s", sessions[i].request_pipe_path);
-    snprintf(thread_args[i].response_pipe_path, strlen(sessions[i].response_pipe_path), "%s", sessions[i].response_pipe_path);
-    if (pthread_create(&threads[i], NULL, handle_client, (void *)&thread_args[i]) != 0) {
+    snprintf(thread_args[i].request_pipe_path, strlen(sessions[i].request_pipe_path), "%s",
+             sessions[i].request_pipe_path);
+    snprintf(thread_args[i].response_pipe_path, strlen(sessions[i].response_pipe_path), "%s",
+             sessions[i].response_pipe_path);
+    if (pthread_create(&threads[i], NULL, handle_client, (void*)&thread_args[i]) != 0) {
       perror("Error creating thread");
       return 1;
     }
