@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include "common/constants.h"
 #include "common/io.h"
@@ -20,6 +21,23 @@ typedef struct {
 
 Session sessions[MAX_SESSIONS];
 int session_counter = 0;
+
+pthread_mutex_t sessions_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Function to handle a client session in a separate thread
+void* handle_client(void* args) {
+  int session_id = *((int*)args);
+  printf("Handling session %d\n", session_id);
+
+  // TODO: Implement logic to handle client requests for this session
+
+  pthread_mutex_lock(&sessions_mutex);
+  remove_session(session_id);  // Remove the session after it's handled
+  pthread_mutex_unlock(&sessions_mutex);
+
+  printf("Session %d handled\n", session_id);
+  pthread_exit(NULL);
+}
 
 // Function to allocate a unique session ID
 int allocate_unique_session_id() {
@@ -105,6 +123,24 @@ int main(int argc, char* argv[]) {
   }
 
   // TODO: Intialize server, create worker threads
+
+  pthread_t threads[MAX_SESSIONS];  // Array to store thread IDs
+  int thread_args[MAX_SESSIONS];    // Array to store thread arguments (session IDs)
+
+  // Create worker threads for each session
+  for (int i = 0; i < MAX_SESSIONS; ++i) {
+    thread_args[i] = allocate_unique_session_id();  // Allocate unique session ID for each thread
+    if (pthread_create(&threads[i], NULL, handle_client, &thread_args[i]) != 0) {
+      perror("Error creating thread");
+      return 1;
+    }
+  }
+
+
+  // Wait for all threads to finish before exiting
+  for (int i = 0; i < MAX_SESSIONS; ++i) {
+    pthread_join(threads[i], NULL);
+  }
 
   while (1) {
     // Read from the pipe to get client session initiation request
