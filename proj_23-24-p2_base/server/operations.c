@@ -221,9 +221,9 @@ int ems_show(int response_fd, unsigned int event_id) {
   result = 0;
 
   // If the event is found, write 0 followed by the number of rows and columns followed by the seat data
-  printf("Sending to client the result: %ln", &result);
-  printf("Sending to client the rows: %ln", &event->rows);
-  printf("Sending to client the cols: %ln", &event->cols);
+  printf("Sending to client the result: %d", &result);
+  printf("Sending to client the rows: %zu", &event->rows);
+  printf("Sending to client the cols: %zu", &event->cols);
 
   // Write the result, rows, and cols to the buffer
   write(response_fd, &result, sizeof(int));

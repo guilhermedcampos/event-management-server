@@ -169,7 +169,7 @@ int ems_show(int out_fd, int event_id) {
   }
   int result;
 
-  
+
   read(resp_fd, &result, sizeof(int));
 
   printf("result: %d\n", result);
@@ -190,14 +190,15 @@ int ems_show(int out_fd, int event_id) {
 
   for (size_t i = 0; i < num_rows; i++) {
     for (size_t j = 0; j < num_cols; j++) {
-      int seat;
+      unsigned int seat;
       read(resp_fd, &seat, sizeof(unsigned int));
-      write(out_fd, &seat, sizeof(unsigned int));
-      if (j == num_cols - 1) {
-        char newline = '\n';
-        write(out_fd, &newline, sizeof(char));
-      }
+      char seat_str[64];
+      snprintf(seat_str, 64, "%u ", seat);
+      write(out_fd, seat_str, strlen(seat_str));
     }
+    // Add a newline after each row
+    char newline = '\n';
+    write(out_fd, &newline, 1);
   }
 
   close(req_fd);
