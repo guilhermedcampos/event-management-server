@@ -168,7 +168,8 @@ int main(int argc, char* argv[]) {
 
   // Open the named pipe for reading (blocking until a client connects)
   printf("Opening server pipe...\n");
-  int server_fd = open(server_pipe_path, O_RDONLY);
+  // Open the pipe for reading and writing
+  int server_fd = open(server_pipe_path, O_RDWR);
   if (server_fd == -1) {
     perror("Error opening server pipe");
     ems_terminate();
@@ -223,6 +224,7 @@ int main(int argc, char* argv[]) {
         break;
       }
 
+      printf("Server pipe: %d\n", server_fd);
       // Respond to the client with the session_id
       if (write(server_fd, &session_id, sizeof(session_id)) == -1) {
         perror("Error writing to named pipe");
