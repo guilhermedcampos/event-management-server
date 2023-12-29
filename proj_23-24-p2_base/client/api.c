@@ -208,38 +208,53 @@ int ems_show(int out_fd, int event_id) {
 }
 
 int ems_list_events(int out_fd) {
+
+  printf("Sending list events request to server.\n");
   // Send list events request to server through named pipe
   int req_fd = open(session.req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
+    printf("Failed to open request pipe.\n");
     return 1;
   }
   char op_code = 6;
   write(req_fd, &op_code, sizeof(char));
 
+  printf("Sending list events request.\n");
   // Handle server response
   int resp_fd = open(session.resp_pipe_path, O_RDONLY);
   if (resp_fd < 0) {
+    printf("Failed to open response pipe.\n");
     return 1;
   }
+
+
   int result;
   read(resp_fd, &result, sizeof(int));
 
+  printf("result: %d\n", result);
+
   if (result == 1) {
-    perror("Server couldnt list events.");
+      perror("Server couldn't list events.");
+      return 1;
   }
 
-  write(out_fd, "Events:", strlen("Events: "));
+  write(out_fd, "Events:", strlen("Events:"));
 
+  printf("Reading events from server.\n");
   // Read events from server and write them to out_fd
   if (result == 0) {
-    size_t num_events;
-    read(resp_fd, &num_events, sizeof(size_t));
-    for (size_t i = 0; i < num_events; i++) {
-      unsigned int event_id;
-      read(resp_fd, &event_id, sizeof(unsigned int));
-      write(out_fd, " ", strlen(" "));
-      write(out_fd, &event_id, sizeof(unsigned int));
-    }
+      size_t num_events;
+      read(resp_fd, &num_events, sizeof(size_t));
+      for (size_t i = 0; i < num_events; i++) {
+          unsigned int event_id;
+          read(resp_fd, &event_id, sizeof(unsigned int));
+          char id_str[64];
+          snprintf(id_str, 64, " %u", event_id);  // Fix here
+          write(out_fd, id_str, strlen(id_str));
+      }
+      // Add a newline after listing all events
+      char newline = '\n';
+      write(out_fd, &newline, 1);
   }
 
   close(req_fd);

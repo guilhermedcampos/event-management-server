@@ -10,8 +10,6 @@
 
 static struct EventList* event_list = NULL;
 static unsigned int state_access_delay_us = 0;
-char error_code = 1;
-char success_code = 0;
 
 /// Gets the event with the given ID from the state.
 /// @note Will wait to simulate a real system accessing a costly memory resource.
@@ -240,17 +238,18 @@ int ems_show(int response_fd, unsigned int event_id) {
 }
 
 int ems_list_events(int out_fd) {
+  int result = 1;
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
 
-    write(out_fd, &error_code, sizeof(char));
+    write(out_fd, &result, sizeof(int));
     return 1;
   }
 
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
     fprintf(stderr, "Error locking list rwl\n");
 
-    write(out_fd, &error_code, sizeof(char));
+    write(out_fd, &result, sizeof(int));
     return 1;
   }
 
@@ -258,14 +257,15 @@ int ems_list_events(int out_fd) {
   struct ListNode* current = event_list->head;
 
   if (current == NULL) {
-    write(out_fd, &error_code, sizeof(char));
+    write(out_fd, &result, sizeof(int));
     // write(out_fd, "No events", strlen("No events"));
     pthread_rwlock_unlock(&event_list->rwl);
     return 1;
   }
 
+  result = 0;
   // If there are events, write 0 followed by the number of events followed by the event ids
-  write(out_fd, &success_code, sizeof(char));
+  write(out_fd, &result, sizeof(int));
   size_t num_events = 0;
   while (1) {
     num_events++;
