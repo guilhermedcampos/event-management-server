@@ -180,19 +180,19 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
   return 0;
 }
 
-int ems_show(int response_fd, unsigned int event_id) {
+char* ems_show(int response_fd, unsigned int event_id) {
+  // result: (int) success (0 ro 1) | (size_t) num_rows | (size_t) num_cols | (unsigned int[num_rows * num_cols]) seats
+  int result;
+
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
-
-    write(response_fd, &error_code, sizeof(char));
-    return 1;
+    return strdup("1");
   }
 
-  if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
-    fprintf(stderr, "Error locking list rwl\n");
+  printf("Locking event list rwl\n");
 
-    write(response_fd, &error_code, sizeof(char));
-    return 1;
+  if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
+    return strdup("1");
   }
 
   struct Event* event = get_event_with_delay(event_id, event_list->head, event_list->tail);
@@ -201,29 +201,44 @@ int ems_show(int response_fd, unsigned int event_id) {
 
   if (event == NULL) {
     fprintf(stderr, "Event not found\n");
-
-    write(response_fd, &error_code, sizeof(char));
-    return 1;
+    return strdup("1");
   }
+
+  printf("Event found\n ");
 
   if (pthread_mutex_lock(&event->mutex) != 0) {
     fprintf(stderr, "Error locking mutex\n");
-
-    write(response_fd, &error_code, sizeof(char));
-    return 1;
+    return strdup("1");
   }
 
-  // If the event is found, write 0 followed by the number of rows and columns followed by the seat data
-  write(response_fd, &success_code, sizeof(char));
-  write(response_fd, &event->rows, sizeof(size_t));
-  write(response_fd, &event->cols, sizeof(size_t));
+  printf("No errors\n ");
+  // No more errors, write success code
+  result = 0;
 
+  // If the event is found, write 0 followed by the number of rows and columns followed by the seat data
+
+  // Create a buffer large enough to hold the result
+  size_t buffer_size = 1 + sizeof(size_t) * 2 + sizeof(unsigned int) * event->rows * event->cols;
+  char* buffer = malloc(buffer_size);
+  if (buffer == NULL) {
+    fprintf(stderr, "Error allocating memory\n");
+    pthread_mutex_unlock(&event->mutex);
+    return strdup("1");
+  }
+
+  // Write the result, rows, and cols to the buffer
+  memcpy(buffer, &result, sizeof(result));
+  memcpy(buffer + sizeof(result), &event->rows, sizeof(event->rows));
+  memcpy(buffer + sizeof(result) + sizeof(event->rows), &event->cols, sizeof(event->cols));
+
+  // Write the seat data to the buffer
   for (size_t i = 0; i < event->rows * event->cols; i++) {
-    write(response_fd, &event->data[i], sizeof(unsigned int));
+    memcpy(buffer + sizeof(result) + sizeof(event->rows) + sizeof(event->cols) + i * sizeof(unsigned int),
+           &event->data[i], sizeof(unsigned int));
   }
 
   pthread_mutex_unlock(&event->mutex);
-  return 0;
+  return buffer;
 }
 
 int ems_list_events(int out_fd) {

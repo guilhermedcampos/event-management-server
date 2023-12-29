@@ -170,6 +170,8 @@ int ems_show(int out_fd, int event_id) {
   int result;
   read(resp_fd, &result, sizeof(int));
 
+  printf("result: %d\n", result);
+
   if (result == 1) {
     perror("Server couldn't show.");
   }
@@ -177,7 +179,12 @@ int ems_show(int out_fd, int event_id) {
   size_t num_rows;
   size_t num_cols;
   read(resp_fd, &num_rows, sizeof(size_t));
+
+  printf("num_rows: %d\n", num_rows);
+
   read(resp_fd, &num_cols, sizeof(size_t));
+
+  printf("num_cols: %d\n", num_cols);
 
   for (size_t i = 0; i < num_rows; i++) {
     for (size_t j = 0; j < num_cols; j++) {

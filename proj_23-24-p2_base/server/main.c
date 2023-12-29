@@ -191,8 +191,11 @@ void* handle_client(void* args) {
         // Handle ems_show
         printf("Handling ems_show\n");
         read(request_pipe, &event_id, sizeof(event_id));
-        result = ems_show(response_pipe, event_id);
+        printf("Event id: %d\n", event_id);
+        char* show_result = ems_show(response_pipe, event_id);
+        printf("Show result: %s\n", show_result);
         open(thread_args->response_pipe_path, O_WRONLY);
+        write(response_pipe, show_result, sizeof(show_result));
         break;
       case 6:  // ems_list_events
         // Handle ems_list_events
