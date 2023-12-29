@@ -96,9 +96,9 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   write(req_fd, &op_code, sizeof(char));
   printf("Sending event_id: %d\n", event_id);
   write(req_fd, &event_id, sizeof(unsigned int));
-  printf("Sending num_rows: %d\n", num_rows);
+  printf("Sending num_rows: %ld\n", num_rows);
   write(req_fd, &num_rows, sizeof(size_t));
-  printf("Sending num_cols: %d\n", num_cols);
+  printf("Sending num_cols: %ld\n", num_cols);
   write(req_fd, &num_cols, sizeof(size_t));
 
   // Handle server response
@@ -168,6 +168,8 @@ int ems_show(int out_fd, int event_id) {
     return 1;
   }
   int result;
+
+  
   read(resp_fd, &result, sizeof(int));
 
   printf("result: %d\n", result);
@@ -180,11 +182,11 @@ int ems_show(int out_fd, int event_id) {
   size_t num_cols;
   read(resp_fd, &num_rows, sizeof(size_t));
 
-  printf("num_rows: %d\n", num_rows);
+  printf("num_rows: %ld\n", num_rows);
 
   read(resp_fd, &num_cols, sizeof(size_t));
 
-  printf("num_cols: %d\n", num_cols);
+  printf("num_cols: %ld\n", num_cols);
 
   for (size_t i = 0; i < num_rows; i++) {
     for (size_t j = 0; j < num_cols; j++) {

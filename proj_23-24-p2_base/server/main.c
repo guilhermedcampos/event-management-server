@@ -166,9 +166,9 @@ void* handle_client(void* args) {
         read(request_pipe, &event_id, sizeof(event_id));
         printf("Event id: %d\n", event_id);
         read(request_pipe, &num_rows, sizeof(num_rows));
-        printf("Num rows: %d\n", num_rows);
+        printf("Num rows: %ld\n", num_rows);
         read(request_pipe, &num_cols, sizeof(num_cols));
-        printf("Num cols: %d\n", num_cols);
+        printf("Num cols: %ld\n", num_cols);
         printf("Calling ems_create\n");
         result = ems_create(event_id, num_rows, num_cols);
         open(thread_args->response_pipe_path, O_WRONLY);
@@ -190,16 +190,15 @@ void* handle_client(void* args) {
       case 5:  // ems_show
         // Handle ems_show
         printf("Handling ems_show\n");
+        open(thread_args->request_pipe_path, O_RDONLY);
         read(request_pipe, &event_id, sizeof(event_id));
         printf("Event id: %d\n", event_id);
-        char* show_result = ems_show(response_pipe, event_id);
-        printf("Show result: %s\n", show_result);
-        open(thread_args->response_pipe_path, O_WRONLY);
-        write(response_pipe, show_result, sizeof(show_result));
+        ems_show(response_pipe, event_id);
         break;
       case 6:  // ems_list_events
         // Handle ems_list_events
         printf("Handling ems_list_events\n");
+        open(thread_args->request_pipe_path, O_RDONLY);
         ems_list_events(response_pipe);  // Assuming this function exists
         break;
       default:
