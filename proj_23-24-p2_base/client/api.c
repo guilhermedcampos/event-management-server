@@ -3,10 +3,10 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
 #include "common/constants.h"
 
 #define S 10
-
 
 typedef struct {
   int session_id;
@@ -18,7 +18,10 @@ Session session;
 
 int ems_setup(char const *req_pipe_path, char const *resp_pipe_path, char const *server_pipe_path) {
   // Create request and response pipes
-  mkfifo(req_pipe_path, 0666);
+
+  // Move them to the server folder server/req_pipe_path and server/resp_pipe_path
+  req_pipe_path = strcat("server/", req_pipe_path);
+  resp_pipe_path = strcat("server/", resp_pipe_path);
   mkfifo(resp_pipe_path, 0666);
 
   // Connect to server pipe
