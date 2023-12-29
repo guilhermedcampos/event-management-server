@@ -23,7 +23,30 @@ struct Session {
 struct Session sessions[MAX_SESSIONS];
 int session_counter = 0;
 
+// Mutex to protect the sessions array
 pthread_mutex_t sessions_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// adds a session to the buffer, the buffer will be used to store the sessions
+int add_session_to_buffer(char* request_pipe_path, char* response_pipe_path) {
+  pthread_mutex_lock(&sessions_mutex);
+
+  if (session_counter == MAX_SESSIONS) {
+    pthread_mutex_unlock(&sessions_mutex);
+    return -1;
+  }
+
+  struct Session session;
+  session.session_id = session_counter;
+  snprintf(session.request_pipe_path, strlen(request_pipe_path), "%s", request_pipe_path);
+  snprintf(session.response_pipe_path, strlen(response_pipe_path), "%s", response_pipe_path);
+
+  sessions[session_counter] = session;
+  session_counter++;
+
+  pthread_mutex_unlock(&sessions_mutex);
+
+  return session.session_id;
+}
 
 // Function to remove a session
 void remove_session(int session_id) {
@@ -98,31 +121,6 @@ void* handle_client(void* args) {
 
   printf("Session %d handled\n", thread_data->session_id);
   pthread_exit(NULL);
-}
-
-// Function to allocate a unique session ID
-int allocate_unique_session_id() {
-  // Increment the counter and ensure it doesn't exceed the maximum
-  session_counter = (session_counter % MAX_SESSIONS) + 1;
-  return session_counter;
-}
-
-// Function to associate a session with client pipes
-void associate_session(int session_id, char* request_pipe_path, char* response_pipe_path) {
-  if (session_counter < MAX_SESSIONS) {
-    sessions[session_counter].session_id = session_id;
-    strncpy(sessions[session_counter].request_pipe_path, request_pipe_path, PATH_MAX);
-    strncpy(sessions[session_counter].response_pipe_path, response_pipe_path, PATH_MAX);
-  } else {
-    printf("Max sessions reached, cannot add more sessions.\n");
-  }
-}
-
-// Function to decrement the active session count
-void decrement_active_sessions_count() {
-  if (session_counter > 0) {
-    session_counter--;
-  }
 }
 
 // Function to get the active session count
@@ -214,12 +212,11 @@ int main(int argc, char* argv[]) {
 
       printf("Response pipe path: %s\n", response_pipe_path);
 
-      // TODO: Create thread to handle the client session
-      // Add the session to the producer-consumer buffer
-
       printf("Allocating session ID...\n");
 
-      int session_id = allocate_unique_session_id();
+      int session_id = add_session_to_buffer(request_pipe_path, response_pipe_path);
+
+      printf("Session ID: %d\n", session_id);
 
       if (session_id == -1) {
         perror("Error allocating session ID");
@@ -231,11 +228,10 @@ int main(int argc, char* argv[]) {
         perror("Error writing to named pipe");
         break;
       }
-
-      associate_session(session_id, request_pipe_path, response_pipe_path);
     }
   }
 
+  /*
   // TODO: Intialize server, create worker threads
 
   pthread_t threads[MAX_SESSIONS];  // Array to store thread IDs
@@ -259,6 +255,7 @@ int main(int argc, char* argv[]) {
   for (int i = 0; i < MAX_SESSIONS; ++i) {
     pthread_join(threads[i], NULL);
   }
+  */
 
   // TODO: Close Server
   close(server_fd);
