@@ -16,8 +16,8 @@
 
 struct Session {
   int session_id;
-  char request_pipe_path[PATH_MAX];
-  char response_pipe_path[PATH_MAX];
+  char request_pipe_path[MAX_PATH];
+  char response_pipe_path[MAX_PATH];
 };
 
 struct Session sessions[MAX_SESSIONS];
@@ -186,13 +186,13 @@ int main(int argc, char* argv[]) {
     printf("Client connected\n");
     printf("Reading from server pipe...\n");
 
-    int op_code;
-    read(server_fd, &op_code, sizeof(int));
+    char op_code;
+    read(server_fd, &op_code, sizeof(char));
     printf("Op code read\n");
 
-    char request_pipe_path[PATH_MAX];
+    char request_pipe_path[MAX_PATH];
 
-    if (read(server_fd, request_pipe_path, sizeof(request_pipe_path)) == -1) {
+    if (read(server_fd, &request_pipe_path, sizeof(MAX_PATH)) == -1) {
       perror("Error reading from named pipe");
       break;
     }
@@ -203,8 +203,8 @@ int main(int argc, char* argv[]) {
 
     printf("Reading from server pipe...\n");
 
-    char response_pipe_path[PATH_MAX];
-    if (read(server_fd, response_pipe_path, sizeof(response_pipe_path)) == -1) {
+    char response_pipe_path[MAX_PATH];
+    if (read(server_fd, &response_pipe_path, sizeof(MAX_PATH)) == -1) {
       perror("Error reading from named pipe");
       break;
     }

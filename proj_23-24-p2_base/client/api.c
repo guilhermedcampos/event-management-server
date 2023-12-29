@@ -3,9 +3,10 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "common/constants.h"
 
 #define S 10
-#define MAX_PATH 40
+
 
 typedef struct {
   int session_id;
