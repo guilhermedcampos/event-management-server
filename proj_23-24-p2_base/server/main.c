@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
     ems_terminate();
     return 1;
   }
-  printf("Server pipe created\n");
+  printf("Server pipe created: %s\n", server_pipe_path);
 
   // Open the named pipe for reading (blocking until a client connects)
   printf("Opening server pipe...\n");
@@ -181,14 +181,16 @@ int main(int argc, char* argv[]) {
   // Loop to populate the sessions array with session IDs and associated pipes
   // while reading from server pipe isnt a blank space
   printf("Waiting for clients...\n");
-  while (read(server_fd, &server_fd, sizeof(server_fd)) != 0 ) {
+  printf("Server pipe: %d\n", server_fd);
+  while (read(server_fd, &server_fd, sizeof(server_fd)) != 0) {
     // Read from the pipe to get client session initiation request
+    printf("Server pipe: %d\n", server_fd);
     printf("Client connected\n");
-    printf("Reading from server pipe...\n");
+    printf("Reading from server pipe: %d\n", server_fd);
 
-    int op_code;
-    read(server_fd, &op_code, sizeof(int));
-    printf("Op code read\n");
+    char op_code;
+    read(server_fd, &op_code, sizeof(op_code));
+    printf("Operation code: %d\n", op_code);
 
     char request_pipe_path[PATH_MAX];
 
