@@ -67,6 +67,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
     return 1;
   }
 
+  printf("Locking event list rwl\n");
   if (pthread_rwlock_wrlock(&event_list->rwl) != 0) {
     fprintf(stderr, "Error locking list rwl\n");
     return 1;
@@ -78,6 +79,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
     return 1;
   }
 
+  printf("Creating event\n");
   struct Event* event = malloc(sizeof(struct Event));
 
   if (event == NULL) {
@@ -104,6 +106,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
     return 1;
   }
 
+  printf("Appending event to list\n");
   if (append_to_list(event_list, event) != 0) {
     fprintf(stderr, "Error appending event to list\n");
     pthread_rwlock_unlock(&event_list->rwl);
@@ -113,6 +116,8 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   }
 
   pthread_rwlock_unlock(&event_list->rwl);
+  printf("Unlocked event list rwl\n");
+  printf("Created event\n");
   return 0;
 }
 
@@ -175,84 +180,63 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
   return 0;
 }
 
-int ems_show(int out_fd, unsigned int event_id) {
-  char* buffer = NULL;
-  size_t buffer_len = 0;
-  FILE* stream = open_memstream(&buffer, &buffer_len);
-
+int ems_show(int response_fd, unsigned int event_id) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
-    
-    write(out_fd, &error_code, sizeof(char));
-    fclose(stream);
-    free(buffer);
+
+    write(response_fd, &error_code, sizeof(char));
     return 1;
   }
 
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
     fprintf(stderr, "Error locking list rwl\n");
-    
-    write(out_fd, &error_code, sizeof(char));
-    fclose(stream);
-    free(buffer);
+
+    write(response_fd, &error_code, sizeof(char));
     return 1;
   }
 
   struct Event* event = get_event_with_delay(event_id, event_list->head, event_list->tail);
+
   pthread_rwlock_unlock(&event_list->rwl);
 
   if (event == NULL) {
     fprintf(stderr, "Event not found\n");
-    
-    write(out_fd, &error_code, sizeof(char));
-    fclose(stream);
-    free(buffer);
+
+    write(response_fd, &error_code, sizeof(char));
     return 1;
   }
 
   if (pthread_mutex_lock(&event->mutex) != 0) {
     fprintf(stderr, "Error locking mutex\n");
-    
-    write(out_fd, &error_code, sizeof(char));
-    fclose(stream);
-    free(buffer);
+
+    write(response_fd, &error_code, sizeof(char));
     return 1;
   }
 
-  for (size_t i = 1; i <= event->rows; i++) {
-    for (size_t j = 1; j <= event->cols; j++) {
-      fprintf(stream, "%u", event->data[seat_index(event, i, j)]);
-      if (j < event->cols) {
-        fprintf(stream, " ");
-      }
-    }
-    fprintf(stream, "\n");
+  // If the event is found, write 0 followed by the number of rows and columns followed by the seat data
+  write(response_fd, &success_code, sizeof(char));
+  write(response_fd, &event->rows, sizeof(size_t));
+  write(response_fd, &event->cols, sizeof(size_t));
+
+  for (size_t i = 0; i < event->rows * event->cols; i++) {
+    write(response_fd, &event->data[i], sizeof(unsigned int));
   }
 
   pthread_mutex_unlock(&event->mutex);
-
-  fclose(stream);  // This updates buffer and buffer_len
-
-  // If everything was successful, write a 0 followed by the answer
-  write(out_fd, &success_code, sizeof(char));
-  write(out_fd, buffer, buffer_len);
-
-  free(buffer);
   return 0;
 }
 
 int ems_list_events(int out_fd) {
-
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
-    
+
     write(out_fd, &error_code, sizeof(char));
     return 1;
   }
 
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
     fprintf(stderr, "Error locking list rwl\n");
-    
+
     write(out_fd, &error_code, sizeof(char));
     return 1;
   }
@@ -261,9 +245,8 @@ int ems_list_events(int out_fd) {
   struct ListNode* current = event_list->head;
 
   if (current == NULL) {
-
     write(out_fd, &error_code, sizeof(char));
-    //write(out_fd, "No events", strlen("No events"));
+    // write(out_fd, "No events", strlen("No events"));
     pthread_rwlock_unlock(&event_list->rwl);
     return 1;
   }

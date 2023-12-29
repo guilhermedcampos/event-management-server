@@ -99,8 +99,6 @@ int add_session_to_buffer(char* request_pipe_path, char* response_pipe_path) {
 
 // Function to handle a client session in a separate thread
 void* handle_client(void* args) {
-  printf("Thread with id %d created\n", pthread_self());
-
   // Add the session to the buffer and get its server id
   printf("Adding session to buffer...\n");
 
@@ -113,11 +111,6 @@ void* handle_client(void* args) {
 
   printf("Retrieving session id: %d\n", thread_args->session_id);
 
-  // Check if thread_args->server_pipe_path is a valid string
-  if (thread_args->server_pipe_path == NULL) {
-    fprintf(stderr, "thread_args->server_pipe_path is NULL\n");
-    pthread_exit(NULL);
-  }
   printf("Server pipe path: %s\n", thread_args->server_pipe_path);
 
   // write the session id to the server pipe
@@ -157,7 +150,8 @@ void* handle_client(void* args) {
   char op_code;
   unsigned int event_id;
   size_t num_rows, num_cols, num_seats;
-  size_t xs[MAX_RESERVATION_SIZE], ys[MAX_RESERVATION_SIZE];  // Assuming a maximum number of seats
+  size_t xs[MAX_RESERVATION_SIZE], ys[MAX_RESERVATION_SIZE];
+  int result;  // result of the operation
 
   while (read(request_pipe, &op_code, sizeof(char)) > 0 && op_code != 2) {
     printf("Operation code: %d\n", op_code);
@@ -168,25 +162,37 @@ void* handle_client(void* args) {
       case 3:  // ems_create
         // Handle ems_create
         printf("Handling ems_create\n");
+        open(thread_args->request_pipe_path, O_RDONLY);
         read(request_pipe, &event_id, sizeof(event_id));
+        printf("Event id: %d\n", event_id);
         read(request_pipe, &num_rows, sizeof(num_rows));
+        printf("Num rows: %d\n", num_rows);
         read(request_pipe, &num_cols, sizeof(num_cols));
-        ems_create(event_id, num_rows, num_cols);  // Assuming this function exists
+        printf("Num cols: %d\n", num_cols);
+        printf("Calling ems_create\n");
+        result = ems_create(event_id, num_rows, num_cols);
+        open(thread_args->response_pipe_path, O_WRONLY);
+        write(response_pipe, &result, sizeof(int));
+        printf("ems_create done\n");
         break;
       case 4:  // ems_reserve
         // Handle ems_reserve
         printf("Handling ems_reserve\n");
+        open(thread_args->request_pipe_path, O_RDONLY);
         read(request_pipe, &event_id, sizeof(event_id));
         read(request_pipe, &num_seats, sizeof(num_seats));
         read(request_pipe, xs, num_seats * sizeof(size_t));
         read(request_pipe, ys, num_seats * sizeof(size_t));
-        ems_reserve(event_id, num_seats, xs, ys);  // Assuming this function exists
+        result = ems_reserve(event_id, num_seats, xs, ys);
+        open(thread_args->response_pipe_path, O_WRONLY);
+        write(response_pipe, &result, sizeof(int));
         break;
       case 5:  // ems_show
         // Handle ems_show
         printf("Handling ems_show\n");
         read(request_pipe, &event_id, sizeof(event_id));
-        ems_show(response_pipe, event_id);  // Assuming this function exists
+        result = ems_show(response_pipe, event_id);
+        open(thread_args->response_pipe_path, O_WRONLY);
         break;
       case 6:  // ems_list_events
         // Handle ems_list_events
@@ -278,7 +284,7 @@ int main(int argc, char* argv[]) {
 
       char request_pipe_path[MAX_PATH];
 
-      if (read(server_fd, &request_pipe_path, sizeof(MAX_PATH)) == -1) {
+      if (read(server_fd, &request_pipe_path, MAX_PATH) == -1) {
         perror("Error reading from named pipe");
         break;
       }
@@ -288,12 +294,19 @@ int main(int argc, char* argv[]) {
       // Obtain the second named pipe for the new session
 
       char response_pipe_path[MAX_PATH];
-      if (read(server_fd, &response_pipe_path, sizeof(MAX_PATH)) == -1) {
+      if (read(server_fd, &response_pipe_path, MAX_PATH) == -1) {
         perror("Error reading from named pipe");
         break;
       }
 
       printf("Response pipe path: %s\n", response_pipe_path);
+
+      // Remove server/ from the beginning of the path
+      memmove(request_pipe_path, request_pipe_path + 7, strlen(request_pipe_path));
+      memmove(response_pipe_path, response_pipe_path + 7, strlen(response_pipe_path));
+
+      printf("New request pipe path: %s\n", request_pipe_path);
+      printf("New response pipe path: %s\n", response_pipe_path);
 
       printf("Allocating session ID...\n");
 

@@ -58,15 +58,17 @@ int main(int argc, char* argv[]) {
     printf("Reading command...\n");
     switch (get_next(in_fd)) {
       case CMD_CREATE:
+        printf("ems_create\n");
         if (parse_create(in_fd, &event_id, &num_rows, &num_columns) != 0) {
           fprintf(stderr, "Invalid command. See HELP for usage\n");
           continue;
         }
 
         if (ems_create(event_id, num_rows, num_columns)) fprintf(stderr, "Failed to create event\n");
+        printf("ems_create done\n");
         break;
-
       case CMD_RESERVE:
+        printf("ems_reserve\n");
         num_coords = parse_reserve(in_fd, MAX_RESERVATION_SIZE, &event_id, xs, ys);
 
         if (num_coords == 0) {
@@ -78,6 +80,7 @@ int main(int argc, char* argv[]) {
         break;
 
       case CMD_SHOW:
+        printf("ems_show\n");
         if (parse_show(in_fd, &event_id) != 0) {
           fprintf(stderr, "Invalid command. See HELP for usage\n");
           continue;
@@ -87,6 +90,7 @@ int main(int argc, char* argv[]) {
         break;
 
       case CMD_LIST_EVENTS:
+        printf("ems_list_events\n");
         if (ems_list_events(out_fd)) fprintf(stderr, "Failed to list events\n");
         break;
 

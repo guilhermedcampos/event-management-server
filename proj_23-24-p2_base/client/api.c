@@ -18,11 +18,8 @@ Session session;
 
 int ems_setup(char const *req_pipe_path, char const *resp_pipe_path, char const *server_pipe_path) {
   // Create request and response pipes
-
-  // Move them to the server folder server/req_pipe_path and server/resp_pipe_path
-  req_pipe_path = strcat("server/", req_pipe_path);
-  resp_pipe_path = strcat("server/", resp_pipe_path);
   mkfifo(resp_pipe_path, 0666);
+  mkfifo(req_pipe_path, 0666);
 
   // Connect to server pipe
   int server_fd = open(server_pipe_path, O_WRONLY);
@@ -37,13 +34,22 @@ int ems_setup(char const *req_pipe_path, char const *resp_pipe_path, char const 
   write(server_fd, req_pipe_path, MAX_PATH);
   write(server_fd, resp_pipe_path, MAX_PATH);
 
+  int req_fd = open(req_pipe_path, O_WRONLY);
+  if (req_fd < 0) {
+    printf("Failed to open request pipe.\n");
+    return 1;
+  }
+
   // Store session_id in session variable
   int resp_fd = open(resp_pipe_path, O_RDONLY);
   if (resp_fd < 0) {
     printf("Failed to open response pipe.\n");
     return 1;
   }
-  read(resp_fd, &session.session_id, sizeof(int));
+
+  read(server_fd, &session.session_id, sizeof(int));
+  printf("Session ID: %d\n", session.session_id);
+
   strcpy(session.req_pipe_path, req_pipe_path);
   strcpy(session.resp_pipe_path, resp_pipe_path);
 
@@ -78,6 +84,7 @@ int ems_quit() {
 
 int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   // Send create request to server through named pipe
+  printf("Sending create request to server through named pipe.\n");
   int req_fd = open(session.req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
     return 1;
@@ -85,12 +92,17 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
 
   // Send create request
   char op_code = 3;
+  printf("Sending op_code: %d\n", op_code);
   write(req_fd, &op_code, sizeof(char));
+  printf("Sending event_id: %d\n", event_id);
   write(req_fd, &event_id, sizeof(unsigned int));
+  printf("Sending num_rows: %d\n", num_rows);
   write(req_fd, &num_rows, sizeof(size_t));
+  printf("Sending num_cols: %d\n", num_cols);
   write(req_fd, &num_cols, sizeof(size_t));
 
   // Handle server response
+  printf("Handling server response.\n");
   int resp_fd = open(session.resp_pipe_path, O_RDONLY);
   if (resp_fd < 0) {
     return 1;
