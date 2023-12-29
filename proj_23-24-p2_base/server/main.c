@@ -182,61 +182,58 @@ int main(int argc, char* argv[]) {
   // while reading from server pipe isnt a blank space
   printf("Waiting for clients...\n");
   printf("Server pipe: %d\n", server_fd);
-  while (read(server_fd, &server_fd, sizeof(server_fd)) != 0) {
+  while (1) {
     // Read from the pipe to get client session initiation request
-    printf("Server pipe: %d\n", server_fd);
     printf("Client connected\n");
-    printf("Reading from server pipe: %d\n", server_fd);
 
     char op_code;
     read(server_fd, &op_code, sizeof(char));
-    printf("Op code read\n");
+    printf("Operation code: %d\n", op_code);
 
-    char request_pipe_path[MAX_PATH];
+    if (op_code == 1) {
+      printf("New session request\n");
 
-    if (read(server_fd, &request_pipe_path, sizeof(MAX_PATH)) == -1) {
-      perror("Error reading from named pipe");
-      break;
+      // Obtain the first named pipe for the new session
+
+      char request_pipe_path[MAX_PATH];
+
+      if (read(server_fd, &request_pipe_path, sizeof(MAX_PATH)) == -1) {
+        perror("Error reading from named pipe");
+        break;
+      }
+
+      printf("Request pipe path: %s\n", request_pipe_path);
+
+      // Obtain the second named pipe for the new session
+
+      char response_pipe_path[MAX_PATH];
+      if (read(server_fd, &response_pipe_path, sizeof(MAX_PATH)) == -1) {
+        perror("Error reading from named pipe");
+        break;
+      }
+
+      printf("Response pipe path: %s\n", response_pipe_path);
+
+      // TODO: Create thread to handle the client session
+      // Add the session to the producer-consumer buffer
+
+      printf("Allocating session ID...\n");
+
+      int session_id = allocate_unique_session_id();
+
+      if (session_id == -1) {
+        perror("Error allocating session ID");
+        break;
+      }
+
+      // Respond to the client with the session_id
+      if (write(server_fd, &session_id, sizeof(session_id)) == -1) {
+        perror("Error writing to named pipe");
+        break;
+      }
+
+      associate_session(session_id, request_pipe_path, response_pipe_path);
     }
-
-    printf("Request pipe path: %s\n", request_pipe_path);
-
-    // Obtain the second named pipe for the new session
-
-    printf("Reading from server pipe...\n");
-
-    char response_pipe_path[MAX_PATH];
-    if (read(server_fd, &response_pipe_path, sizeof(MAX_PATH)) == -1) {
-      perror("Error reading from named pipe");
-      break;
-    }
-
-    printf("Response pipe path: %s\n", response_pipe_path);
-
-    // Handle session initiation
-    // Assign a unique session_id, associate pipes, and respond with the session_id
-
-    printf("Allocating session ID...\n");
-
-    int session_id = allocate_unique_session_id();
-
-    printf("Session ID: %d\n", session_id);
-
-    if (session_id == -1) {
-      perror("Error allocating session ID");
-      break;
-    }
-
-    // Respond to the client with the session_id
-    if (write(server_fd, &session_id, sizeof(session_id)) == -1) {
-      perror("Error writing to named pipe");
-      break;
-    }
-
-    // TODO: Write new client to the producer-consumer buffer
-    // Write new client to the producer-consumer buffer
-    // Store the association between session_id and client pipes
-    associate_session(session_id, request_pipe_path, response_pipe_path);
   }
 
   // TODO: Intialize server, create worker threads
