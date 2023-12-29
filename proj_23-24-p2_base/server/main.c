@@ -29,6 +29,11 @@ struct ThreadArgs {
   char server_pipe_path[MAX_PATH];
 };
 
+struct MainThreadArgs {
+    int server_fd;
+    char server_pipe_path[MAX_PATH];
+};
+
 // int to store the number of active threads
 int session_counter = 0;
 
@@ -221,6 +226,65 @@ void* handle_client(void* args) {
   pthread_exit(NULL);
 }
 
+void* extract_requests(void *args) {
+  struct MainThreadArgs* main_args = (struct MainThreadArgs*)args;
+  printf("Server pipe: %d\n", main_args->server_fd);
+  printf("Waiting for clients...\n");
+  // Loop to populate the sessions array with session IDs and associated pipes
+  while (1) {
+    char op_code;
+    read(main_args->server_fd, &op_code, sizeof(char));
+    if (op_code == 1) {
+      printf("New session request\n");
+
+      // Obtain the first named pipe for the new session
+
+      char request_pipe_path[MAX_PATH];
+
+      if (read(main_args->server_fd, &request_pipe_path, MAX_PATH) == -1) {
+        perror("Error reading from named pipe");
+        break;
+      }
+
+      printf("Request pipe path: %s\n", request_pipe_path);
+
+      // Obtain the second named pipe for the new session
+
+      char response_pipe_path[MAX_PATH];
+      if (read(main_args->server_fd, &response_pipe_path, MAX_PATH) == -1) {
+        perror("Error reading from named pipe");
+        break;
+      }
+
+      printf("Response pipe path: %s\n", response_pipe_path);
+
+      // Remove server/ from the beginning of the path
+      memmove(request_pipe_path, request_pipe_path + 7, strlen(request_pipe_path));
+      memmove(response_pipe_path, response_pipe_path + 7, strlen(response_pipe_path));
+
+      printf("New request pipe path: %s\n", request_pipe_path);
+      printf("New response pipe path: %s\n", response_pipe_path);
+
+      printf("Allocating session ID...\n");
+
+      // Create thread to handle the client function
+      printf("Creating thread...\n");
+      pthread_t thread;
+      struct ThreadArgs thread_args;
+      thread_args.session_id = -1;
+      snprintf(thread_args.request_pipe_path, sizeof(request_pipe_path), "%s", request_pipe_path);
+      snprintf(thread_args.response_pipe_path, sizeof(response_pipe_path), "%s", response_pipe_path);
+      snprintf(thread_args.server_pipe_path, sizeof(main_args->server_pipe_path), "%s", main_args->server_pipe_path);
+      pthread_create(&thread, NULL, handle_client, (void*)&thread_args);
+    }
+    if (op_code == 2) {
+      printf("Client disconnected\n");
+      break;
+    }
+  }
+  return NULL;
+}
+
 int main(int argc, char* argv[]) {
   if (argc < 2 || argc > 3) {
     fprintf(stderr, "Usage: %s\n <server_pipe_path> [delay]\n", argv[0]);
@@ -272,61 +336,15 @@ int main(int argc, char* argv[]) {
   }
   printf("Server pipe opened\n");
 
-  // Loop to populate the sessions array with session IDs and associated pipes
-  // while reading from server pipe isnt a blank space
-  printf("Waiting for clients...\n");
-  printf("Server pipe: %d\n", server_fd);
-  while (1) {
-    char op_code;
-    read(server_fd, &op_code, sizeof(char));
-    if (op_code == 1) {
-      printf("New session request\n");
+  struct MainThreadArgs main_args;
+  main_args.server_fd = server_fd;
+  snprintf(main_args.server_pipe_path, sizeof(main_args.server_pipe_path), "%s", server_pipe_path);
+  pthread_t host_thread;
+  pthread_create(&host_thread, NULL, extract_requests, (void*)&main_args); 
 
-      // Obtain the first named pipe for the new session
 
-      char request_pipe_path[MAX_PATH];
-
-      if (read(server_fd, &request_pipe_path, MAX_PATH) == -1) {
-        perror("Error reading from named pipe");
-        break;
-      }
-
-      printf("Request pipe path: %s\n", request_pipe_path);
-
-      // Obtain the second named pipe for the new session
-
-      char response_pipe_path[MAX_PATH];
-      if (read(server_fd, &response_pipe_path, MAX_PATH) == -1) {
-        perror("Error reading from named pipe");
-        break;
-      }
-
-      printf("Response pipe path: %s\n", response_pipe_path);
-
-      // Remove server/ from the beginning of the path
-      memmove(request_pipe_path, request_pipe_path + 7, strlen(request_pipe_path));
-      memmove(response_pipe_path, response_pipe_path + 7, strlen(response_pipe_path));
-
-      printf("New request pipe path: %s\n", request_pipe_path);
-      printf("New response pipe path: %s\n", response_pipe_path);
-
-      printf("Allocating session ID...\n");
-
-      // Create thread to handle the client function
-      printf("Creating thread...\n");
-      pthread_t thread;
-      struct ThreadArgs thread_args;
-      thread_args.session_id = -1;
-      snprintf(thread_args.request_pipe_path, sizeof(request_pipe_path), "%s", request_pipe_path);
-      snprintf(thread_args.response_pipe_path, sizeof(response_pipe_path), "%s", response_pipe_path);
-      snprintf(thread_args.server_pipe_path, sizeof(server_pipe_path), "%s", server_pipe_path);
-      pthread_create(&thread, NULL, handle_client, (void*)&thread_args);
-    }
-    if (op_code == 2) {
-      printf("Client disconnected\n");
-      break;
-    }
-  }
+  // Somewhere in your main program, after other threads have been created
+  pthread_join(host_thread, NULL); 
 
   /*
   // TODO: Intialize server, create worker threads
