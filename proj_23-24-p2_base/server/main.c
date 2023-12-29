@@ -224,12 +224,17 @@ int main(int argc, char* argv[]) {
         break;
       }
 
-      printf("Server pipe: %d\n", server_fd);
+      printf("Returning session ID: %d\n", session_id);
       // Respond to the client with the session_id
       if (write(server_fd, &session_id, sizeof(session_id)) == -1) {
         perror("Error writing to named pipe");
         break;
       }
+      break;
+    }
+    if (op_code == 2) {
+      printf("Client disconnected\n");
+      break;
     }
   }
 
