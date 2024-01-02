@@ -82,7 +82,9 @@ int insert_request(struct Request* request) {
 
   // Wait if the buffer is full
   while (count == MAX_SESSION_COUNT) {
+    printf("Buffer is full, waiting...\n");
     pthread_cond_wait(&not_full_cond, &buffer_mutex);
+    printf("Done waiting, buffer is not full\n");
   }
 
   session_counter++;
@@ -98,7 +100,8 @@ int insert_request(struct Request* request) {
   pthread_cond_signal(&not_empty_cond);
 
   pthread_mutex_unlock(&buffer_mutex);
-  return session_id;
+  printf("Session id: %d\n", session_id);
+  return session_id;  
 }
 
 // Function to retrieve a request from the buffer
@@ -371,14 +374,10 @@ int main(int argc, char* argv[]) {
   pthread_t host_thread;
   pthread_create(&host_thread, NULL, extract_requests, (void*)&main_args); 
 
-  // Somewhere in your main program, after other threads have been created
-  pthread_join(host_thread, NULL); 
-
-  
   // TODO: Intialize server, create worker threads
 
   pthread_t worker_threads[MAX_SESSIONS];  // Array to store thread IDs
-  
+
   // Create worker threads for each session
   for (int i = 0; i < MAX_SESSIONS; ++i) {
     if (pthread_create(&worker_threads[i], NULL, worker_function, NULL) != 0) {
@@ -391,7 +390,9 @@ int main(int argc, char* argv[]) {
   for (int i = 0; i < MAX_SESSIONS; ++i) {
     pthread_join(worker_threads[i], NULL);
   }
-  
+
+  // Wait for the host thread to finish
+  pthread_join(host_thread, NULL); 
 
   // TODO: Close Server
   close(server_fd);
