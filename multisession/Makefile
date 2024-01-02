@@ -29,6 +29,10 @@ run: server/ems
 clean:
 	rm -f common/*.o client/*.o server/*.o server/ems client/client
 	rm -f server/my_pipe*
+	rm -f server/a1*
+	rm -f server/a2*
+	rm -f server/b1*
+	rm -f server/b2*
 
 format:
 	@which clang-format >/dev/null 2>&1 || echo "Please install clang-format to run this command"

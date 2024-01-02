@@ -14,6 +14,10 @@
 
 #define MAX_SESSIONS 3
 
+// Declare a rwlock
+pthread_rwlock_t server_pipe_rwlock = PTHREAD_RWLOCK_INITIALIZER;
+
+
 // Struct to store session information
 struct Session {
   int session_id;
@@ -110,6 +114,7 @@ void retrieve_request(struct Request* request) {
 
   // Wait if the buffer is empty
   while (count == 0) {
+    printf("Buffer is empty, waiting...\n");
     pthread_cond_wait(&not_empty_cond, &buffer_mutex);
   }
 
@@ -117,6 +122,12 @@ void retrieve_request(struct Request* request) {
   *request = buffer[out];
   out = (out + 1) % MAX_SESSION_COUNT;
   count--;
+
+  printf("Request retrieved from buffer\n");
+  // Print request information
+  printf("REQ FROM BUF: Session id: %d\n", request->session_id);
+  printf("REQ FROM BUF: Request pipe path: %s\n", request->request_pipe_path);
+  printf("REQ FROM BUF: Response pipe path: %s\n", request->response_pipe_path);
 
   // Signal that the buffer is not full
   pthread_cond_signal(&not_full_cond);
@@ -145,7 +156,7 @@ void* handle_client(void* args) {
 
   printf("Server pipe opened\n");
 
-  write(server_pipe, &thread_args->session_id, sizeof(thread_args->session_id));
+  write(server_pipe, &thread_args->session_id, sizeof(int));
   printf("Session id written to server pipe\n");
 
   printf("Handling session %d\n", thread_args->session_id);
@@ -185,11 +196,11 @@ void* handle_client(void* args) {
         // Handle ems_create
         printf("Handling ems_create\n");
         open(thread_args->request_pipe_path, O_RDONLY);
-        read(request_pipe, &event_id, sizeof(event_id));
+        read(request_pipe, &event_id, sizeof(unsigned int));
         printf("Event id: %d\n", event_id);
-        read(request_pipe, &num_rows, sizeof(num_rows));
+        read(request_pipe, &num_rows, sizeof(size_t));
         printf("Num rows: %ld\n", num_rows);
-        read(request_pipe, &num_cols, sizeof(num_cols));
+        read(request_pipe, &num_cols, sizeof(size_t));
         printf("Num cols: %ld\n", num_cols);
         printf("Calling ems_create\n");
         result = ems_create(event_id, num_rows, num_cols);
@@ -201,8 +212,8 @@ void* handle_client(void* args) {
         // Handle ems_reserve
         printf("Handling ems_reserve\n");
         open(thread_args->request_pipe_path, O_RDONLY);
-        read(request_pipe, &event_id, sizeof(event_id));
-        read(request_pipe, &num_seats, sizeof(num_seats));
+        read(request_pipe, &event_id, sizeof(unsigned int));
+        read(request_pipe, &num_seats, sizeof(size_t));
         read(request_pipe, xs, num_seats * sizeof(size_t));
         read(request_pipe, ys, num_seats * sizeof(size_t));
         result = ems_reserve(event_id, num_seats, xs, ys);
@@ -213,7 +224,7 @@ void* handle_client(void* args) {
         // Handle ems_show
         printf("Handling ems_show\n");
         open(thread_args->request_pipe_path, O_RDONLY);
-        read(request_pipe, &event_id, sizeof(event_id));
+        read(request_pipe, &event_id, sizeof(unsigned int));
         printf("Event id: %d\n", event_id);
         ems_show(response_pipe, event_id);
         break;
@@ -247,10 +258,12 @@ void* handle_client(void* args) {
 void* worker_function() {
   while (1) {
     struct Request current_request;
-
+    printf("Retrieving request...\n");
     // Retrieve a request from the buffer
     retrieve_request(&current_request);
-
+    printf("Request retrieved\n");
+    // Print details of request
+    printf("Request: %d %s %s\n", current_request.session_id, current_request.request_pipe_path, current_request.response_pipe_path);
     // Execute the handle_client function with the retrieved request
     handle_client(&current_request);
   }
@@ -264,6 +277,10 @@ void* extract_requests(void *args) {
   // Loop to populate the sessions array with session IDs and associated pipes
   while (1) {
     char op_code;
+
+    // Lock the rwlock for reading before reading from the server pipe
+    pthread_rwlock_rdlock(&server_pipe_rwlock);
+
     read(main_args->server_fd, &op_code, sizeof(char));
     if (op_code == 1) {
       printf("New session request\n");
@@ -271,7 +288,6 @@ void* extract_requests(void *args) {
       // Obtain the first named pipe for the new session
 
       char request_pipe_path[MAX_PATH];
-
       if (read(main_args->server_fd, &request_pipe_path, MAX_PATH) == -1) {
         perror("Error reading from named pipe");
         break;
@@ -302,12 +318,16 @@ void* extract_requests(void *args) {
 
       struct Request request;
       request.session_id = -1;
-      snprintf(request.request_pipe_path, sizeof(request_pipe_path), "%s", request_pipe_path);
-      snprintf(request.response_pipe_path, sizeof(response_pipe_path), "%s", response_pipe_path);
-      snprintf(request.server_pipe_path, sizeof(main_args->server_pipe_path), "%s", main_args->server_pipe_path);
+      snprintf(request.request_pipe_path, MAX_PATH, "%s", request_pipe_path);
+      snprintf(request.response_pipe_path, MAX_PATH, "%s", response_pipe_path);
+      snprintf(request.server_pipe_path, MAX_PATH, "%s", main_args->server_pipe_path);
 
       // Insert the request into the requests array
       insert_request(&request);
+
+      // Unlock the rwlock after reading from the server pipe
+      pthread_rwlock_unlock(&server_pipe_rwlock);
+
     }
     if (op_code == 2) {
       printf("Client disconnected\n");
@@ -370,7 +390,7 @@ int main(int argc, char* argv[]) {
 
   struct MainThreadArgs main_args;
   main_args.server_fd = server_fd;
-  snprintf(main_args.server_pipe_path, sizeof(main_args.server_pipe_path), "%s", server_pipe_path);
+  snprintf(main_args.server_pipe_path, MAX_PATH, "%s", server_pipe_path);
   pthread_t host_thread;
   pthread_create(&host_thread, NULL, extract_requests, (void*)&main_args); 
 
