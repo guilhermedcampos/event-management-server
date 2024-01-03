@@ -14,8 +14,7 @@
 
 #define MAX_SESSIONS 3
 
-// Declare a rwlock
-pthread_rwlock_t server_pipe_rwlock = PTHREAD_RWLOCK_INITIALIZER;
+
 
 
 // Struct to store session information
@@ -44,8 +43,9 @@ pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t not_empty_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t not_full_cond = PTHREAD_COND_INITIALIZER;
 
+int server_fd;
+
 struct MainThreadArgs {
-    int server_fd;
     char server_pipe_path[MAX_PATH];
 };
 
@@ -272,23 +272,20 @@ void* worker_function() {
 // Extract requests function (producer)
 void* extract_requests(void *args) {
   struct MainThreadArgs* main_args = (struct MainThreadArgs*)args;
-  printf("Server pipe: %d\n", main_args->server_fd);
+  printf("Server pipe: %d\n", server_fd);
   printf("Waiting for clients...\n");
   // Loop to populate the sessions array with session IDs and associated pipes
   while (1) {
     char op_code;
 
-    // Lock the rwlock for reading before reading from the server pipe
-    pthread_rwlock_rdlock(&server_pipe_rwlock);
-
-    read(main_args->server_fd, &op_code, sizeof(char));
+    read(server_fd, &op_code, sizeof(char));
     if (op_code == 1) {
       printf("New session request\n");
 
       // Obtain the first named pipe for the new session
 
       char request_pipe_path[MAX_PATH];
-      if (read(main_args->server_fd, &request_pipe_path, MAX_PATH) == -1) {
+      if (read(server_fd, &request_pipe_path, MAX_PATH) == -1) {
         perror("Error reading from named pipe");
         break;
       }
@@ -298,7 +295,7 @@ void* extract_requests(void *args) {
       // Obtain the second named pipe for the new session
 
       char response_pipe_path[MAX_PATH];
-      if (read(main_args->server_fd, &response_pipe_path, MAX_PATH) == -1) {
+      if (read(server_fd, &response_pipe_path, MAX_PATH) == -1) {
         perror("Error reading from named pipe");
         break;
       }
@@ -325,8 +322,6 @@ void* extract_requests(void *args) {
       // Insert the request into the requests array
       insert_request(&request);
 
-      // Unlock the rwlock after reading from the server pipe
-      pthread_rwlock_unlock(&server_pipe_rwlock);
 
     }
     if (op_code == 2) {
@@ -380,7 +375,7 @@ int main(int argc, char* argv[]) {
   // Open the named pipe for reading (blocking until a client connects)
   printf("Opening server pipe...\n");
   // Open the pipe for reading and writing
-  int server_fd = open(server_pipe_path, O_RDWR);
+  server_fd = open(server_pipe_path, O_RDWR);
   if (server_fd == -1) {
     perror("Error opening server pipe");
     ems_terminate();
@@ -389,7 +384,6 @@ int main(int argc, char* argv[]) {
   printf("Server pipe opened\n");
 
   struct MainThreadArgs main_args;
-  main_args.server_fd = server_fd;
   snprintf(main_args.server_pipe_path, MAX_PATH, "%s", server_pipe_path);
   pthread_t host_thread;
   pthread_create(&host_thread, NULL, extract_requests, (void*)&main_args); 
