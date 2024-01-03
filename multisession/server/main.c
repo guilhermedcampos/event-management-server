@@ -14,16 +14,6 @@
 
 #define MAX_SESSIONS 3
 
-
-
-
-// Struct to store session information
-struct Session {
-  int session_id;
-  char request_pipe_path[MAX_PATH];
-  char response_pipe_path[MAX_PATH];
-};
-
 // Struct to store thread arguments
 struct Request {
   int session_id;
@@ -52,33 +42,45 @@ struct MainThreadArgs {
 // int to store the number of active threads
 int session_counter = 0;
 
-// Array to store the sessions
-struct Session sessions[MAX_SESSIONS];
-
 // Mutex to protect the sessions array
 pthread_mutex_t sessions_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// Function to remove a session from the buffer
 void remove_session(int session_id) {
+  pthread_mutex_lock(&buffer_mutex);
+
+  // Wait if the buffer is empty
+  while (count == 0) {
+    printf("Buffer is empty, waiting...\n");
+    pthread_cond_wait(&not_empty_cond, &buffer_mutex);
+    printf("Done waiting, buffer is not empty\n");
+  }
+
   printf("Removing session %d from buffer...\n", session_id);
 
   // Find the session in the buffer
   int i;
   for (i = 0; i < MAX_SESSIONS; ++i) {
-    if (sessions[i].session_id == session_id) {
+    if (buffer[i].session_id == session_id) {
       break;
     }
   }
 
   // Remove the session from the buffer
-  sessions[i].session_id = -1;
-  sessions[i].request_pipe_path[0] = '\0';
-  sessions[i].response_pipe_path[0] = '\0';
+  buffer[i].session_id = -1;
+  buffer[i].request_pipe_path[0] = '\0';
+  buffer[i].response_pipe_path[0] = '\0';
+  buffer[i].server_pipe_path[0] = '\0';
 
   printf("Session %d removed from buffer\n", session_id);
 
   // Decrement the number of active sessions
   session_counter--;
+  count--;
+
+  // Signal that the buffer is not full
+  pthread_cond_signal(&not_full_cond);
+
+  pthread_mutex_unlock(&buffer_mutex);
 }
 
 int insert_request(struct Request* request) {
@@ -137,8 +139,6 @@ void retrieve_request(struct Request* request) {
 
 // Function to handle a client session in a separate thread
 void* handle_client(void* args) {
-  // Add the session to the buffer and get its server id
-  printf("Adding session to buffer...\n");
 
   struct Request* thread_args = (struct Request*)args;
 
