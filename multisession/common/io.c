@@ -5,6 +5,48 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <errno.h>
+#include <string.h>
+#include <stdio.h>
+
+ssize_t my_read(int fd, void* buffer, size_t size) {
+    ssize_t done = 0;
+    ssize_t new_size = (ssize_t) size;
+    while (done < new_size) {
+        ssize_t bytes_read = read(fd, (char*)buffer + done, (size_t)(new_size - done));
+        if (bytes_read < 0) {
+            fprintf(stderr, "Read error: %s\n", strerror(errno));
+            return -1;
+        }
+
+        // if we read 0 bytes, we're done
+        if (bytes_read == 0)
+            break;
+
+        done += bytes_read;
+    }
+
+    return done;
+}
+
+ssize_t my_write(int fd, const void* buffer, size_t size) {
+    ssize_t done = 0;
+    ssize_t new_size = (ssize_t) size;
+    while (new_size > 0) {
+        ssize_t bytes_written = write(fd, (const char*)buffer + done, (size_t)new_size);
+        if (bytes_written < 0) {
+            fprintf(stderr, "write error: %s\n", strerror(errno));
+            return -1;
+        }
+
+        new_size -= bytes_written;
+        done += bytes_written;
+    }
+
+    return done;
+}
+
+
 int parse_uint(int fd, unsigned int *value, char *next) {
   char buf[16];
 
