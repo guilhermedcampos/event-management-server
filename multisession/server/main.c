@@ -24,9 +24,9 @@ struct Request {
 
 // Shared buffer
 struct Request buffer[MAX_SESSION_COUNT];
-int in = 0; // Index to insert a new request
-int out = 0; // Index to remove a request
-int count = 0; // Number of requests in the buffer
+int in = 0;     // Index to insert a new request
+int out = 0;    // Index to remove a request
+int count = 0;  // Number of requests in the buffer
 
 // Mutex and condition variables
 pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -36,7 +36,7 @@ pthread_cond_t not_full_cond = PTHREAD_COND_INITIALIZER;
 int server_fd;
 
 struct MainThreadArgs {
-    char server_pipe_path[MAX_PATH];
+  char server_pipe_path[MAX_PATH];
 };
 
 // int to store the number of active threads
@@ -48,14 +48,7 @@ pthread_mutex_t sessions_mutex = PTHREAD_MUTEX_INITIALIZER;
 void remove_session(int session_id) {
   pthread_mutex_lock(&buffer_mutex);
 
-  // Wait if the buffer is empty
-  while (count == 0) {
-    printf("Buffer is empty, waiting...\n");
-    pthread_cond_wait(&not_empty_cond, &buffer_mutex);
-    printf("Done waiting, buffer is not empty\n");
-  }
-
-  printf("Removing session %d from buffer...\n", session_id);
+  printf("T ID %ld: Removing session %d from buffer...\n", pthread_self(), session_id);
 
   // Find the session in the buffer
   int i;
@@ -71,7 +64,7 @@ void remove_session(int session_id) {
   buffer[i].response_pipe_path[0] = '\0';
   buffer[i].server_pipe_path[0] = '\0';
 
-  printf("Session %d removed from buffer\n", session_id);
+  printf("T ID %ld: Session %d removed from buffer\n", pthread_self(), session_id);
 
   // Decrement the number of active sessions
   session_counter--;
@@ -88,10 +81,9 @@ int insert_request(struct Request* request) {
 
   // Wait if the buffer is full
   while (count == MAX_SESSION_COUNT) {
-    printf("Buffer is full, waiting...\n");
-    pthread_cond_wait(&not_full_cond, &buffer_mutex);
-    printf("Done waiting, buffer is not full\n");
+    printf("H: Buffer is full, server pipe is waiting to insert new one...\n");
   }
+  printf("H: Done waiting, buffer is not full, server pipe will insert request\n");
 
   session_counter++;
   int session_id = session_counter;
@@ -106,63 +98,50 @@ int insert_request(struct Request* request) {
   pthread_cond_signal(&not_empty_cond);
 
   pthread_mutex_unlock(&buffer_mutex);
-  printf("Session id: %d\n", session_id);
-  return session_id;  
+  printf("H: Session id: %d\n", session_id);
+  return session_id;
 }
 
 // Function to retrieve a request from the buffer
 void retrieve_request(struct Request* request) {
   pthread_mutex_lock(&buffer_mutex);
 
-  // Wait if the buffer is empty
-  while (count == 0) {
-    printf("Buffer is empty, waiting...\n");
-    pthread_cond_wait(&not_empty_cond, &buffer_mutex);
-  }
-
+  printf("T ID %ld: Retrieving a request\n", pthread_self());
   // Retrieve the request from the buffer
   *request = buffer[out];
   out = (out + 1) % MAX_SESSION_COUNT;
   count--;
 
-  printf("Request retrieved from buffer\n");
   // Print request information
   printf("REQ FROM BUF: Session id: %d\n", request->session_id);
   printf("REQ FROM BUF: Request pipe path: %s\n", request->request_pipe_path);
   printf("REQ FROM BUF: Response pipe path: %s\n", request->response_pipe_path);
-
-  // Signal that the buffer is not full
-  pthread_cond_signal(&not_full_cond);
 
   pthread_mutex_unlock(&buffer_mutex);
 }
 
 // Function to handle a client session in a separate thread
 void* handle_client(void* args) {
-
   struct Request* thread_args = (struct Request*)args;
 
-  printf("Retrieving session id: %d\n", thread_args->session_id);
-
-  printf("Server pipe path: %s\n", thread_args->server_pipe_path);
+  printf("T ID %ld: Handling session %d\n with server pipe: %s\n", pthread_self(), thread_args->session_id,
+         thread_args->server_pipe_path);
 
   // write the session id to the server pipe
-  printf("Opening server pipe...\n");
+  printf("T ID %ld: Opening server pipe...\n", pthread_self());
+
   int server_pipe = open(thread_args->server_pipe_path, O_WRONLY);
   if (server_pipe == -1) {
     perror("Error opening server pipe");
     pthread_exit(NULL);
   }
 
-  printf("Server pipe opened\n");
-
-  write(server_pipe, &thread_args->session_id, sizeof(int));
-  printf("Session id written to server pipe\n");
-
-  printf("Handling session %d\n", thread_args->session_id);
+  printf("T ID %ld: Server pipe opened\n", pthread_self());
 
   printf("Request pipe path: %s\n", thread_args->request_pipe_path);
+
   int request_pipe = open(thread_args->request_pipe_path, O_RDONLY);
+
   if (request_pipe == -1) {
     perror("Error opening request pipe");
     pthread_exit(NULL);
@@ -170,14 +149,19 @@ void* handle_client(void* args) {
   printf("Request pipe: %d\n", request_pipe);
 
   printf("Response pipe path: %s\n", thread_args->response_pipe_path);
-  // find a path to the response pipe
 
   int response_pipe = open(thread_args->response_pipe_path, O_WRONLY);
+
   if (response_pipe == -1) {
     perror("Error opening response pipe");
     pthread_exit(NULL);
   }
+
   printf("Response pipe: %d\n", response_pipe);
+
+  // Send the session id to the response pipe
+  write(response_pipe, &thread_args->session_id, sizeof(int));
+  printf("T ID %ld: Session id sent to response pipe\n", pthread_self());
 
   // Handle client requests
   char op_code;
@@ -190,8 +174,21 @@ void* handle_client(void* args) {
     printf("Operation code: %d\n", op_code);
     switch (op_code) {
       case 2:  // ems_quit
-        // Handle ems_quit
-        break;
+        printf("Session %d terminated\n", thread_args->session_id);
+
+        // Close the pipes
+        close(request_pipe);
+        close(response_pipe);
+
+        pthread_mutex_lock(&sessions_mutex);
+        remove_session(thread_args->session_id);  // remove the session from the buffer
+        pthread_mutex_unlock(&sessions_mutex);
+
+        printf("Session %d handled\n", thread_args->session_id);
+        // Free the memory allocated for the thread arguments
+        free(thread_args);
+        // Send thread to worker function to handle the next request
+        pthread_exit(NULL);
       case 3:  // ems_create
         // Handle ems_create
         printf("Handling ems_create\n");
@@ -239,58 +236,56 @@ void* handle_client(void* args) {
         break;
     }
   }
-
-  printf("Session %d terminated\n", thread_args->session_id);
-
-  // Close the pipes
-  close(request_pipe);
-  close(response_pipe);
-
-  pthread_mutex_lock(&sessions_mutex);
-  remove_session(thread_args->session_id);  // remove the session from the buffer
-  pthread_mutex_unlock(&sessions_mutex);
-
-  printf("Session %d handled\n", thread_args->session_id);
-  pthread_exit(NULL);
 }
 
 // Worker thread function
 void* worker_function() {
   while (1) {
     struct Request current_request;
-    printf("Retrieving request...\n");
-    // Retrieve a request from the buffer
+    printf("T ID %ld: Retrieving request\n", pthread_self());
+
+    // Condition variable to wait for a request to be available
+    pthread_mutex_lock(&buffer_mutex);
+    while (count == 0) {
+      printf("T ID %ld: Buffer is empty, waiting.\n", pthread_self());
+      pthread_cond_wait(&not_empty_cond, &buffer_mutex);
+    }
+    pthread_mutex_unlock(&buffer_mutex);
+
+    printf("T ID %ld: Done waiting, buffer is not empty, worker thread will retrieve request\n", pthread_self());
+
     retrieve_request(&current_request);
-    printf("Request retrieved\n");
-    // Print details of request
-    printf("Request: %d %s %s\n", current_request.session_id, current_request.request_pipe_path, current_request.response_pipe_path);
+
+    printf("T ID %ld: Request retrieved.\n", pthread_self());
+
     // Execute the handle_client function with the retrieved request
     handle_client(&current_request);
   }
 }
 
 // Extract requests function (producer)
-void* extract_requests(void *args) {
+void* extract_requests(void* args) {
   struct MainThreadArgs* main_args = (struct MainThreadArgs*)args;
   printf("Server pipe: %d\n", server_fd);
-  printf("Waiting for clients...\n");
+  printf("H: Waiting for clients...\n");
   // Loop to populate the sessions array with session IDs and associated pipes
   while (1) {
     char op_code;
 
     read(server_fd, &op_code, sizeof(char));
     if (op_code == 1) {
-      printf("New session request\n");
+      printf("H: New session request\n");
 
       // Obtain the first named pipe for the new session
-
+      printf("CHEGOU AQUI 1\n");
       char request_pipe_path[MAX_PATH];
       if (read(server_fd, &request_pipe_path, MAX_PATH) == -1) {
         perror("Error reading from named pipe");
         break;
       }
 
-      printf("Request pipe path: %s\n", request_pipe_path);
+      printf("CHEGOU AQUI 2\n");
+      printf("H: Request pipe path: %s\n", request_pipe_path);
 
       // Obtain the second named pipe for the new session
 
@@ -300,18 +295,21 @@ void* extract_requests(void *args) {
         break;
       }
 
-      printf("Response pipe path: %s\n", response_pipe_path);
+      printf("H: Response pipe path: %s\n", response_pipe_path);
 
       // Remove server/ from the beginning of the path
-      memmove(request_pipe_path, request_pipe_path + 7, strlen(request_pipe_path));
-      memmove(response_pipe_path, response_pipe_path + 7, strlen(response_pipe_path));
-
-      printf("New request pipe path: %s\n", request_pipe_path);
-      printf("New response pipe path: %s\n", response_pipe_path);
-      printf("Allocating session ID...\n");
+      if (strncmp(request_pipe_path, "server/", 7) == 0) {
+        memmove(request_pipe_path, request_pipe_path + 7, strlen(request_pipe_path) - 6);
+      }
+      if (strncmp(response_pipe_path, "server/", 7) == 0) {
+        memmove(response_pipe_path, response_pipe_path + 7, strlen(response_pipe_path) - 6);
+      }
+      printf("H: New request pipe path: %s\n", request_pipe_path);
+      printf("H: New response pipe path: %s\n", response_pipe_path);
+      printf("H: Allocating session ID...\n");
 
       // Create thread to handle the client function
-      printf("Creating thread...\n");
+      printf("H: Creating thread...\n");
 
       struct Request request;
       request.session_id = -1;
@@ -321,12 +319,7 @@ void* extract_requests(void *args) {
 
       // Insert the request into the requests array
       insert_request(&request);
-
-
-    }
-    if (op_code == 2) {
-      printf("Client disconnected\n");
-      break;
+      printf("H: Request inserted\n");
     }
   }
   return NULL;
@@ -386,7 +379,7 @@ int main(int argc, char* argv[]) {
   struct MainThreadArgs main_args;
   snprintf(main_args.server_pipe_path, MAX_PATH, "%s", server_pipe_path);
   pthread_t host_thread;
-  pthread_create(&host_thread, NULL, extract_requests, (void*)&main_args); 
+  pthread_create(&host_thread, NULL, extract_requests, (void*)&main_args);
 
   // TODO: Intialize server, create worker threads
 
@@ -406,7 +399,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Wait for the host thread to finish
-  pthread_join(host_thread, NULL); 
+  pthread_join(host_thread, NULL);
 
   // TODO: Close Server
   close(server_fd);

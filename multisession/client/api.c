@@ -47,7 +47,7 @@ int ems_setup(char const *req_pipe_path, char const *resp_pipe_path, char const 
     return 1;
   }
 
-  read(server_fd, &session.session_id, sizeof(int));
+  read(resp_fd, &session.session_id, sizeof(int));
   printf("Session ID: %d\n", session.session_id);
 
   strcpy(session.req_pipe_path, req_pipe_path);
@@ -169,7 +169,6 @@ int ems_show(int out_fd, int event_id) {
   }
   int result;
 
-
   read(resp_fd, &result, sizeof(int));
 
   printf("result: %d\n", result);
@@ -208,7 +207,6 @@ int ems_show(int out_fd, int event_id) {
 }
 
 int ems_list_events(int out_fd) {
-
   printf("Sending list events request to server.\n");
   // Send list events request to server through named pipe
   int req_fd = open(session.req_pipe_path, O_WRONLY);
@@ -227,15 +225,14 @@ int ems_list_events(int out_fd) {
     return 1;
   }
 
-
   int result;
   read(resp_fd, &result, sizeof(int));
 
   printf("result: %d\n", result);
 
   if (result == 1) {
-      perror("Server couldn't list events.");
-      return 1;
+    perror("Server couldn't list events.");
+    return 1;
   }
 
   write(out_fd, "Events:", strlen("Events:"));
@@ -243,18 +240,18 @@ int ems_list_events(int out_fd) {
   printf("Reading events from server.\n");
   // Read events from server and write them to out_fd
   if (result == 0) {
-      size_t num_events;
-      read(resp_fd, &num_events, sizeof(size_t));
-      for (size_t i = 0; i < num_events; i++) {
-          unsigned int event_id;
-          read(resp_fd, &event_id, sizeof(unsigned int));
-          char id_str[64];
-          snprintf(id_str, 64, " %u", event_id);  // Fix here
-          write(out_fd, id_str, strlen(id_str));
-      }
-      // Add a newline after listing all events
-      char newline = '\n';
-      write(out_fd, &newline, 1);
+    size_t num_events;
+    read(resp_fd, &num_events, sizeof(size_t));
+    for (size_t i = 0; i < num_events; i++) {
+      unsigned int event_id;
+      read(resp_fd, &event_id, sizeof(unsigned int));
+      char id_str[64];
+      snprintf(id_str, 64, " %u", event_id);  // Fix here
+      write(out_fd, id_str, strlen(id_str));
+    }
+    // Add a newline after listing all events
+    char newline = '\n';
+    write(out_fd, &newline, 1);
   }
 
   close(req_fd);
