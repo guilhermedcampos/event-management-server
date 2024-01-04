@@ -12,8 +12,6 @@
 #include "common/io.h"
 #include "operations.h"
 
-#define MAX_SESSIONS 3
-
 // Struct to store thread arguments
 struct Request {
   int session_id;
@@ -52,7 +50,7 @@ void remove_session(int session_id) {
 
   // Find the session in the buffer
   int i;
-  for (i = 0; i < MAX_SESSIONS; ++i) {
+  for (i = 0; i < MAX_SESSION_COUNT; ++i) {
     if (buffer[i].session_id == session_id) {
       break;
     }
@@ -192,7 +190,6 @@ void* handle_client(void* args) {
       case 3:  // ems_create
         // Handle ems_create
         printf("Handling ems_create\n");
-        open(thread_args->request_pipe_path, O_RDONLY);
         read(request_pipe, &event_id, sizeof(unsigned int));
         printf("Event id: %d\n", event_id);
         read(request_pipe, &num_rows, sizeof(size_t));
@@ -201,34 +198,30 @@ void* handle_client(void* args) {
         printf("Num cols: %ld\n", num_cols);
         printf("Calling ems_create\n");
         result = ems_create(event_id, num_rows, num_cols);
-        open(thread_args->response_pipe_path, O_WRONLY);
         write(response_pipe, &result, sizeof(int));
         printf("ems_create done\n");
         break;
       case 4:  // ems_reserve
         // Handle ems_reserve
         printf("Handling ems_reserve\n");
-        open(thread_args->request_pipe_path, O_RDONLY);
         read(request_pipe, &event_id, sizeof(unsigned int));
         read(request_pipe, &num_seats, sizeof(size_t));
         read(request_pipe, xs, num_seats * sizeof(size_t));
         read(request_pipe, ys, num_seats * sizeof(size_t));
         result = ems_reserve(event_id, num_seats, xs, ys);
-        open(thread_args->response_pipe_path, O_WRONLY);
         write(response_pipe, &result, sizeof(int));
         break;
       case 5:  // ems_show
         // Handle ems_show
         printf("Handling ems_show\n");
-        open(thread_args->request_pipe_path, O_RDONLY);
         read(request_pipe, &event_id, sizeof(unsigned int));
         printf("Event id: %d\n", event_id);
+        printf("Sending response pipe path: %s\n", thread_args->response_pipe_path);
         ems_show(response_pipe, event_id);
         break;
       case 6:  // ems_list_events
         // Handle ems_list_events
         printf("Handling ems_list_events\n");
-        open(thread_args->request_pipe_path, O_RDONLY);
         ems_list_events(response_pipe);  // Assuming this function exists
         break;
       default:
@@ -383,10 +376,10 @@ int main(int argc, char* argv[]) {
 
   // TODO: Intialize server, create worker threads
 
-  pthread_t worker_threads[MAX_SESSIONS];  // Array to store thread IDs
+  pthread_t worker_threads[MAX_SESSION_COUNT];  // Array to store thread IDs
 
   // Create worker threads for each session
-  for (int i = 0; i < MAX_SESSIONS; ++i) {
+  for (int i = 0; i < MAX_SESSION_COUNT; ++i) {
     if (pthread_create(&worker_threads[i], NULL, worker_function, NULL) != 0) {
       perror("Error creating thread");
       return 1;
@@ -394,7 +387,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Wait for all threads to finish before exiting
-  for (int i = 0; i < MAX_SESSIONS; ++i) {
+  for (int i = 0; i < MAX_SESSION_COUNT; ++i) {
     pthread_join(worker_threads[i], NULL);
   }
 

@@ -158,6 +158,7 @@ int ems_show(int out_fd, int event_id) {
   if (req_fd < 0) {
     return 1;
   }
+
   char op_code = 5;
   write(req_fd, &op_code, sizeof(char));
   write(req_fd, &event_id, sizeof(unsigned int));
@@ -171,14 +172,13 @@ int ems_show(int out_fd, int event_id) {
 
   read(resp_fd, &result, sizeof(int));
 
-  printf("result: %d\n", result);
-
   if (result == 1) {
     perror("Server couldn't show.");
   }
 
   size_t num_rows;
   size_t num_cols;
+
   read(resp_fd, &num_rows, sizeof(size_t));
 
   printf("num_rows: %ld\n", num_rows);

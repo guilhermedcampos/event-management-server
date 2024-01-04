@@ -223,6 +223,8 @@ int ems_show(int response_fd, unsigned int event_id) {
   printf("Sending to client the rows: %zu", &event->rows);
   printf("Sending to client the cols: %zu", &event->cols);
 
+  printf("Sending to response_fd: %d", response_fd);
+
   // Write the result, rows, and cols to the buffer
   write(response_fd, &result, sizeof(int));
   write(response_fd, &event->rows, sizeof(size_t));
