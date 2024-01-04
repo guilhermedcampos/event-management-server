@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "common/constants.h"
+#include "common/io.h"
 
 /**
  * Represents a session in the Event Management System (EMS), storing the
@@ -79,15 +80,15 @@ int ems_setup(char const *req_pipe_p, char const *resp_pipe_p, char const *serve
   // Send session start request to server
   char op_code = 1;  // op_code for session start
 
-  if (write(server_fd, &op_code, sizeof(char)) < 0) {
+  if (my_write(server_fd, &op_code, sizeof(char)) == -1) {
     printf("Failed to write op_code.\n");
     return 1;
   }
-  if (write(server_fd, req_pipe_path, MAX_PATH) < 0) {
+  if (my_write(server_fd, req_pipe_path, MAX_PATH) == -1) {
     printf("Failed to write req_pipe_path.\n");
     return 1;
   }
-  if (write(server_fd, resp_pipe_path, MAX_PATH) < 0) {
+  if (my_write(server_fd, resp_pipe_path, MAX_PATH) == -1) {
     printf("Failed to write resp_pipe_path.\n");
     return 1;
   }
@@ -105,7 +106,10 @@ int ems_setup(char const *req_pipe_p, char const *resp_pipe_p, char const *serve
   }
 
   // Read session_id from server
-  read(resp_fd, &session.session_id, sizeof(int));
+  if (my_read(resp_fd, &session.session_id, sizeof(int)) == -1) {
+    printf("Failed to read session_id.\n");
+    return 1;
+  }
 
   // Copy named pipe paths to session struct
   strcpy(session.req_pipe_path, req_pipe_path);
@@ -141,12 +145,12 @@ int ems_quit() {
   // Send session end request to server
   char op_code = 2;  // op_code for session end
 
-  if (write(req_fd, &op_code, sizeof(char)) < 0) {
+  if (my_write(req_fd, &op_code, sizeof(char)) == -1) {
     printf("Failed to write op_code.\n");
     return 1;
   }
 
-  if (write(req_fd, &session.session_id, sizeof(int)) < 0) {
+  if (my_write(req_fd, &session.session_id, sizeof(int)) == -1) {
     printf("Failed to write session_id.\n");
     return 1;
   }
@@ -192,27 +196,27 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   // Send create request to server and event information
   char op_code = 3;  // op_code for create
 
-  if (write(req_fd, &op_code, sizeof(char)) < 0) {
+  if (my_write(req_fd, &op_code, sizeof(char)) == -1) {
     printf("Failed to write op_code.\n");
     return 1;
   }
 
-  if (write(req_fd, &session.session_id, sizeof(int)) < 0) {
+  if (my_write(req_fd, &session.session_id, sizeof(int)) == -1) {
     printf("Failed to write session_id.\n");
     return 1;
   }
 
-  if (write(req_fd, &event_id, sizeof(unsigned int)) < 0) {
+  if (my_write(req_fd, &event_id, sizeof(unsigned int)) == -1) {
     printf("Failed to write event_id.\n");
     return 1;
   }
 
-  if (write(req_fd, &num_rows, sizeof(size_t)) < 0) {
+  if (my_write(req_fd, &num_rows, sizeof(size_t)) == -1) {
     printf("Failed to write num_rows.\n");
     return 1;
   }
 
-  if (write(req_fd, &num_cols, sizeof(size_t)) < 0) {
+  if (my_write(req_fd, &num_cols, sizeof(size_t)) == -1) {
     printf("Failed to write num_cols.\n");
     return 1;
   }
@@ -225,7 +229,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
 
   int result;
 
-  if (read(resp_fd, &result, sizeof(int)) < 0) {
+  if (my_read(resp_fd, &result, sizeof(int)) == -1) {
     printf("Failed to read result.\n");
     return 1;
   }
@@ -267,32 +271,32 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
 
   // Send reserve request to server and seat information
   char op_code = 4;
-  if (write(req_fd, &op_code, sizeof(char)) < 0) {
+  if (my_write(req_fd, &op_code, sizeof(char)) == -1) {
     printf("Failed to write op_code.\n");
     return 1;
   }
 
-  if (write(req_fd, &session.session_id, sizeof(int)) < 0) {
+  if (my_write(req_fd, &session.session_id, sizeof(int)) == -1) {
     printf("Failed to write session_id.\n");
     return 1;
   }
 
-  if (write(req_fd, &event_id, sizeof(unsigned int)) < 0) {
+  if (my_write(req_fd, &event_id, sizeof(unsigned int)) == -1) {
     printf("Failed to write event_id.\n");
     return 1;
   }
 
-  if (write(req_fd, &num_seats, sizeof(size_t)) < 0) {
+  if (my_write(req_fd, &num_seats, sizeof(size_t)) == -1) {
     printf("Failed to write num_seats.\n");
     return 1;
   }
 
-  if (write(req_fd, xs, num_seats * sizeof(size_t)) < 0) {
+  if (my_write(req_fd, xs, num_seats * sizeof(size_t)) == -1) {
     printf("Failed to write xs.\n");
     return 1;
   }
 
-  if (write(req_fd, ys, num_seats * sizeof(size_t)) < 0) {
+  if (my_write(req_fd, ys, num_seats * sizeof(size_t)) == -1) {
     printf("Failed to write ys.\n");
     return 1;
   }
@@ -305,7 +309,7 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
 
   int result;
 
-  if (read(resp_fd, &result, sizeof(int)) < 0) {
+  if (my_read(resp_fd, &result, sizeof(int)) == -1) {
     printf("Failed to read result.\n");
     return 1;
   }
@@ -347,17 +351,17 @@ int ems_show(int out_fd, int event_id) {
 
   char op_code = 5;  // op_code for show
 
-  if (write(req_fd, &op_code, sizeof(char)) < 0) {
+  if (my_write(req_fd, &op_code, sizeof(char)) == -1) {
     printf("Failed to write op_code.\n");
     return 1;
   }
 
-  if (write(req_fd, &session.session_id, sizeof(int)) < 0) {
+  if (my_write(req_fd, &session.session_id, sizeof(int)) == -1) {
     printf("Failed to write session_id.\n");
     return 1;
   }
 
-  if (write(req_fd, &event_id, sizeof(unsigned int)) < 0) {
+  if (my_write(req_fd, &event_id, sizeof(unsigned int)) == -1) {
     printf("Failed to write event_id.\n");
     return 1;
   }
@@ -370,7 +374,7 @@ int ems_show(int out_fd, int event_id) {
 
   int result;
 
-  if (read(resp_fd, &result, sizeof(int)) < 0) {
+  if (my_read(resp_fd, &result, sizeof(int)) == -1) {
     printf("Failed to read result.\n");
     return 1;
   }
@@ -383,12 +387,12 @@ int ems_show(int out_fd, int event_id) {
   size_t num_rows;
   size_t num_cols;
 
-  if (read(resp_fd, &num_rows, sizeof(size_t)) < 0) {
+  if (my_read(resp_fd, &num_rows, sizeof(size_t)) == -1) {
     printf("Failed to read num_rows.\n");
     return 1;
   }
 
-  if (read(resp_fd, &num_cols, sizeof(size_t)) < 0) {
+  if (my_read(resp_fd, &num_cols, sizeof(size_t)) == -1) {
     printf("Failed to read num_cols.\n");
     return 1;
   }
@@ -396,13 +400,13 @@ int ems_show(int out_fd, int event_id) {
   for (size_t i = 0; i < num_rows; i++) {
     for (size_t j = 0; j < num_cols; j++) {
       unsigned int seat;
-      if (read(resp_fd, &seat, sizeof(unsigned int)) < 0) {
+      if (my_read(resp_fd, &seat, sizeof(unsigned int)) == -1) {
         printf("Failed to read seat.\n");
         return 1;
       }
       char seat_str[64];
       snprintf(seat_str, 64, "%u ", seat);
-      if (write(out_fd, seat_str, strlen(seat_str)) < 0) {
+      if (my_write(out_fd, seat_str, strlen(seat_str)) == -1) {
         printf("Failed to write seat_str.\n");
         return 1;
       }
@@ -410,7 +414,7 @@ int ems_show(int out_fd, int event_id) {
 
     // Add a newline after each row
     char newline = '\n';
-    if (write(out_fd, &newline, 1) < 0) {
+    if (my_write(out_fd, &newline, 1) == -1) {
       printf("Failed to write newline.\n");
       return 1;
     }
@@ -448,12 +452,12 @@ int ems_list_events(int out_fd) {
   // Send list events request to server
   char op_code = 6;  // op_code for list events
 
-  if (write(req_fd, &op_code, sizeof(char)) < 0) {
+  if (my_write(req_fd, &op_code, sizeof(char)) == -1) {
     printf("Failed to write op_code.\n");
     return 1;
   }
 
-  if (write(req_fd, &session.session_id, sizeof(int)) < 0) {
+  if (my_write(req_fd, &session.session_id, sizeof(int)) == -1) {
     printf("Failed to write session_id.\n");
     return 1;
   }
@@ -467,7 +471,7 @@ int ems_list_events(int out_fd) {
 
   int result;
 
-  if (read(resp_fd, &result, sizeof(int)) < 0) {
+  if (my_read(resp_fd, &result, sizeof(int)) == -1) {
     printf("Failed to read result.\n");
     return 1;
   }
@@ -478,36 +482,36 @@ int ems_list_events(int out_fd) {
   }
 
   if (result == 2) {
-    write(out_fd, "No events\n", strlen("No events\n"));
+    my_write(out_fd, "No events\n", strlen("No events\n"));
     return 1;
   }
 
   // Read events from server and write them to out_fd
   size_t num_events;
-  if (read(resp_fd, &num_events, sizeof(size_t)) < 0) {
+  if (my_read(resp_fd, &num_events, sizeof(size_t)) == -1) {
     printf("Failed to read num_events.\n");
     return 1;
   }
 
   for (size_t i = 0; i < num_events; i++) {
     unsigned int event_id;
-    if (read(resp_fd, &event_id, sizeof(unsigned int)) < 0) {
+    if (my_read(resp_fd, &event_id, sizeof(unsigned int)) == -1) {
       printf("Failed to read event_id.\n");
       return 1;
     }
     char id_str[64];
-    if (write(out_fd, "Event: ", strlen("Event: ")) < 0) {
+    if (my_write(out_fd, "Event: ", strlen("Event: ")) == -1) {
       return 1;
     }
     snprintf(id_str, 64, "%u\n", event_id);
-    if (write(out_fd, id_str, strlen(id_str)) < 0) {
+    if (my_write(out_fd, id_str, strlen(id_str)) == -1) {
       return 1;
     }
   }
 
   // Add a newline after listing all events
   char newline = '\n';
-  if (write(out_fd, &newline, 1) < 0) {
+  if (my_write(out_fd, &newline, 1) == -1) {
     printf("Failed to write newline.\n");
     return 1;
   }

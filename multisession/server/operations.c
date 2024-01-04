@@ -253,7 +253,7 @@ int ems_show(int response_fd, unsigned int event_id) {
 
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
-    if (write(response_fd, &result, sizeof(int)) == -1) {
+    if (my_write(response_fd, &result, sizeof(int)) == -1) {
       fprintf(stderr, "Error writing to fd\n");
     }
     return 1;
@@ -262,7 +262,7 @@ int ems_show(int response_fd, unsigned int event_id) {
   printf("Locking event list rwl\n");
 
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
-    if (write(response_fd, &result, sizeof(int)) == -1) {
+    if (my_write(response_fd, &result, sizeof(int)) == -1) {
       fprintf(stderr, "Error writing to fd\n");
     }
     return 1;
@@ -276,7 +276,7 @@ int ems_show(int response_fd, unsigned int event_id) {
 
   if (event == NULL) {
     fprintf(stderr, "Event not found\n");
-    if (write(response_fd, &result, sizeof(int)) == -1) {
+    if (my_write(response_fd, &result, sizeof(int)) == -1) {
       fprintf(stderr, "Error writing to fd\n");
     }
     return 1;
@@ -286,7 +286,7 @@ int ems_show(int response_fd, unsigned int event_id) {
 
   if (pthread_mutex_lock(&event->mutex) != 0) {
     fprintf(stderr, "Error locking mutex\n");
-    if (write(response_fd, &result, sizeof(int)) == -1) {
+    if (my_write(response_fd, &result, sizeof(int)) == -1) {
       fprintf(stderr, "Error writing to fd\n");
     }
     return 1;
@@ -296,21 +296,21 @@ int ems_show(int response_fd, unsigned int event_id) {
   result = 0;
 
   // Write the result, rows, and cols to the buffer
-  if (write(response_fd, &result, sizeof(int)) == -1) {
+  if (my_write(response_fd, &result, sizeof(int)) == -1) {
     fprintf(stderr, "Error writing to fd\n");
     if (pthread_mutex_unlock(&event->mutex) != 0) {
       fprintf(stderr, "Error unlocking mutex\n");
     }
     return 1;
   }
-  if (write(response_fd, &event->rows, sizeof(size_t)) == -1) {
+  if (my_write(response_fd, &event->rows, sizeof(size_t)) == -1) {
     fprintf(stderr, "Error writing to fd\n");
     if (pthread_mutex_unlock(&event->mutex) != 0) {
       fprintf(stderr, "Error unlocking mutex\n");
     }
     return 1;
   }
-  if (write(response_fd, &event->cols, sizeof(size_t)) == -1) {
+  if (my_write(response_fd, &event->cols, sizeof(size_t)) == -1) {
     fprintf(stderr, "Error writing to fd\n");
     if (pthread_mutex_unlock(&event->mutex) != 0) {
       fprintf(stderr, "Error unlocking mutex\n");
@@ -320,7 +320,7 @@ int ems_show(int response_fd, unsigned int event_id) {
 
   // Write the seat data to the buffer
   for (size_t i = 0; i < event->rows * event->cols; i++) {
-    if (write(response_fd, &event->data[i], sizeof(unsigned int)) == -1) {
+    if (my_write(response_fd, &event->data[i], sizeof(unsigned int)) == -1) {
       fprintf(stderr, "Error writing to fd\n");
       if (pthread_mutex_unlock(&event->mutex) != 0) {
         fprintf(stderr, "Error unlocking mutex\n");
@@ -346,7 +346,7 @@ int ems_list_events(int out_fd) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
 
-    if (write(out_fd, &result, sizeof(int)) == -1) {
+    if (my_write(out_fd, &result, sizeof(int)) == -1) {
       fprintf(stderr, "Error writing to fd\n");
     }
     return 1;
@@ -355,7 +355,7 @@ int ems_list_events(int out_fd) {
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
     fprintf(stderr, "Error locking list rwl\n");
 
-    if (write(out_fd, &result, sizeof(int)) == -1) {
+    if (my_write(out_fd, &result, sizeof(int)) == -1) {
       fprintf(stderr, "Error writing to fd\n");
     }
 
@@ -368,7 +368,7 @@ int ems_list_events(int out_fd) {
   result = 2;
 
   if (current == NULL) {
-    write(out_fd, &result, sizeof(int));
+    my_write(out_fd, &result, sizeof(int));
     if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
       fprintf(stderr, "Error unlocking list rwl\n");
     }
@@ -377,7 +377,7 @@ int ems_list_events(int out_fd) {
 
   result = 0;
   // If there are events, write 0 followed by the number of events followed by the event ids
-  if (write(out_fd, &result, sizeof(int)) == -1) {
+  if (my_write(out_fd, &result, sizeof(int)) == -1) {
     fprintf(stderr, "Error writing to fd\n");
     if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
       fprintf(stderr, "Error unlocking list rwl\n");
@@ -397,7 +397,7 @@ int ems_list_events(int out_fd) {
     current = current->next;
   }
 
-  if (write(out_fd, &num_events, sizeof(size_t)) == -1) {
+  if (my_write(out_fd, &num_events, sizeof(size_t)) == -1) {
     fprintf(stderr, "Error writing to fd\n");
     if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
       fprintf(stderr, "Error unlocking list rwl\n");
@@ -408,7 +408,7 @@ int ems_list_events(int out_fd) {
   current = event_list->head;
 
   while (1) {
-    if (write(out_fd, &(current->event)->id, sizeof(unsigned int)) == -1) {
+    if (my_write(out_fd, &(current->event)->id, sizeof(unsigned int)) == -1) {
       fprintf(stderr, "Error writing to fd\n");
       if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
         fprintf(stderr, "Error unlocking list rwl\n");

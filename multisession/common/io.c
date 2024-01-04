@@ -86,7 +86,7 @@ int print_uint(int fd, unsigned int value) {
   size_t i = 16;
 
   for (; value > 0; value /= 10) {
-    buffer[--i] = '0' + (char)(value % 10);
+    buffer[--i] = (char)('0' + (value % 10));
   }
 
   if (i == 16) {

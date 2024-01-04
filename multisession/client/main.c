@@ -5,6 +5,7 @@
 
 #include "api.h"
 #include "common/constants.h"
+#include "common/io.h"
 #include "parser.h"
 
 /**

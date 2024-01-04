@@ -1,6 +1,23 @@
 #ifndef COMMON_IO_H
 #define COMMON_IO_H
 
+#include <stddef.h>
+#include <sys/types.h>
+
+/// Writes data from a buffer to a file descriptor.
+/// @param fd The file descriptor to write to.
+/// @param buffer The buffer to write from.
+/// @param size The number of bytes to write.
+/// @return The number of bytes written, or -1 if an error occurred.
+ssize_t my_write(int fd, const void* buffer, size_t size);
+
+/// Reads data from a file descriptor into a buffer.
+/// @param fd The file descriptor to read from.
+/// @param buffer The buffer to read into.
+/// @param size The number of bytes to read.
+/// @return The number of bytes read, or -1 if an error occurred.
+ssize_t my_read(int fd, void* buffer, size_t size);
+
 /// Parses an unsigned integer from the given file descriptor.
 /// @param fd The file descriptor to read from.
 /// @param value Pointer to the variable to store the value in.
