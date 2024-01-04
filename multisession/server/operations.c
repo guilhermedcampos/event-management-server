@@ -32,6 +32,14 @@ static struct Event* get_event_with_delay(unsigned int event_id, struct ListNode
 /// @return Index of the seat.
 static size_t seat_index(struct Event* event, size_t row, size_t col) { return (row - 1) * event->cols + col - 1; }
 
+/**
+ * Initializes the Event Management System (EMS) state.
+ *
+ * This function must be called before using any other EMS functions.
+ *
+ * @param delay_us The delay in microseconds to simulate access to a costly memory resource.
+ * @return 0 on success, 1 on failure.
+ */
 int ems_init(unsigned int delay_us) {
   if (event_list != NULL) {
     fprintf(stderr, "EMS state has already been initialized\n");
@@ -44,6 +52,13 @@ int ems_init(unsigned int delay_us) {
   return event_list == NULL;
 }
 
+/**
+ * Terminates the Event Management System (EMS) state.
+ *
+ * This function should be called when the EMS is no longer needed.
+ *
+ * @return 0 on success, 1 on failure.
+ */
 int ems_terminate() {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
@@ -60,6 +75,14 @@ int ems_terminate() {
   return 0;
 }
 
+/**
+ * Creates a new event with the specified ID, number of rows, and number of columns.
+ *
+ * @param event_id The ID of the new event.
+ * @param num_rows The number of rows in the event.
+ * @param num_cols The number of columns in the event.
+ * @return 0 on success, 1 on failure.
+ */
 int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
@@ -120,6 +143,15 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   return 0;
 }
 
+/**
+ * Reserves seats for a specified event.
+ *
+ * @param event_id The ID of the event to reserve seats for.
+ * @param num_seats The number of seats to reserve.
+ * @param xs An array containing the row indices of the seats.
+ * @param ys An array containing the column indices of the seats.
+ * @return 0 on success, 1 on failure.
+ */
 int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
@@ -179,6 +211,13 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
   return 0;
 }
 
+/**
+ * Sends information about a specified event to the client through a given file descriptor.
+ *
+ * @param response_fd The file descriptor to send the information to.
+ * @param event_id The ID of the event to get information about.
+ * @return 0 on success, 1 on failure.
+ */
 int ems_show(int response_fd, unsigned int event_id) {
   // result: (int) success (0 to 1) | (size_t) num_rows | (size_t) num_cols | (unsigned int[num_rows * num_cols]) seats
   int result = 1;
@@ -239,6 +278,12 @@ int ems_show(int response_fd, unsigned int event_id) {
   return 0;
 }
 
+/**
+ * Lists all events and their IDs, sending the information to the specified file descriptor.
+ *
+ * @param out_fd The file descriptor to send the information to.
+ * @return 0 on success, 1 on failure.
+ */
 int ems_list_events(int out_fd) {
   int result = 1;
   if (event_list == NULL) {

@@ -7,18 +7,28 @@
 #include "common/constants.h"
 #include "parser.h"
 
+/**
+ * The main function for the EMS client program.
+ *
+ * @param argc Number of command-line arguments.
+ * @param argv Array of command-line arguments.
+ * @return 0 if the program executed successfully, 1 otherwise.
+ */
 int main(int argc, char* argv[]) {
+  // Check if the required number of command-line arguments is provided
   if (argc < 5) {
     fprintf(stderr, "Usage: %s <request pipe path> <response pipe path> <server pipe path> <.jobs file path>\n",
             argv[0]);
     return 1;
   }
 
+  // Set up communication with the EMS server
   if (ems_setup(argv[1], argv[2], argv[3])) {
     fprintf(stderr, "Failed to set up EMS\n");
     return 1;
   }
 
+  // Validate the provided .jobs file path
   const char* dot = strrchr(argv[4], '.');
   if (dot == NULL || dot == argv[4] || strlen(dot) != 5 || strcmp(dot, ".jobs") ||
       strlen(argv[4]) > MAX_JOB_FILE_NAME_SIZE) {
@@ -26,36 +36,32 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  // Create an output file path by replacing the extension with .out
   char out_path[MAX_JOB_FILE_NAME_SIZE];
   strcpy(out_path, argv[4]);
   strcpy(strrchr(out_path, '.'), ".out");
 
   // Open input file
-  printf("Opening input file: %s\n", argv[4]);
   int in_fd = open(argv[4], O_RDONLY);
-  printf("Opened input file: %s\n", argv[4]);
   if (in_fd == -1) {
     fprintf(stderr, "Failed to open input file. Path: %s\n", argv[4]);
     return 1;
   }
 
-  // Open output file
-  printf("Opening output file: %s\n", out_path);
+  // Open output file;
   int out_fd = open(out_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-  printf("Opened output file: %s\n", out_path);
   if (out_fd == -1) {
     fprintf(stderr, "Failed to open output file. Path: %s\n", out_path);
     return 1;
   }
 
+  // Main command processing loop
   while (1) {
-    printf("Waiting for command...\n");
     unsigned int event_id;
     size_t num_rows, num_columns, num_coords;
     unsigned int delay = 0;
     size_t xs[MAX_RESERVATION_SIZE], ys[MAX_RESERVATION_SIZE];
 
-    printf("Reading command...\n");
     switch (get_next(in_fd)) {
       case CMD_CREATE:
         printf("ems_create\n");
@@ -65,7 +71,6 @@ int main(int argc, char* argv[]) {
         }
 
         if (ems_create(event_id, num_rows, num_columns)) fprintf(stderr, "Failed to create event\n");
-        printf("ems_create done\n");
         break;
       case CMD_RESERVE:
         printf("ems_reserve\n");
@@ -95,6 +100,7 @@ int main(int argc, char* argv[]) {
         break;
 
       case CMD_WAIT:
+        printf("ems_wait\n");
         if (parse_wait(in_fd, &delay, NULL) == -1) {
           fprintf(stderr, "Invalid command. See HELP for usage\n");
           continue;
