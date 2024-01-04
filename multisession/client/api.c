@@ -130,6 +130,12 @@ int ems_quit() {
     printf("Failed to write op_code.\n");
     return 1;
   }
+
+  if (write(req_fd, &session.session_id, sizeof(int)) < 0) {
+    printf("Failed to write session_id.\n");
+    return 1;
+  }
+
   // Close named pipes
   close(req_fd);
 
@@ -170,6 +176,11 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
     return 1;
   }
 
+  if (write(req_fd, &session.session_id, sizeof(int)) < 0) {
+    printf("Failed to write session_id.\n");
+    return 1;
+  }
+
   if (write(req_fd, &event_id, sizeof(unsigned int)) < 0) {
     printf("Failed to write event_id.\n");
     return 1;
@@ -185,11 +196,12 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
     return 1;
   }
 
+  // Handle server response
   int resp_fd = open(session.resp_pipe_path, O_RDONLY);
   if (resp_fd < 0) {
     return 1;
   }
-  // Read result from server
+
   int result;
 
   if (read(resp_fd, &result, sizeof(int)) < 0) {
@@ -220,7 +232,6 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
  * @return           0 on success, 1 on failure.
  */
 int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys) {
-
   // Send reserve request to server through named pipe
   int req_fd = open(session.req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
@@ -233,18 +244,27 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
     printf("Failed to write op_code.\n");
     return 1;
   }
+
+  if (write(req_fd, &session.session_id, sizeof(int)) < 0) {
+    printf("Failed to write session_id.\n");
+    return 1;
+  }
+
   if (write(req_fd, &event_id, sizeof(unsigned int)) < 0) {
     printf("Failed to write event_id.\n");
     return 1;
   }
+
   if (write(req_fd, &num_seats, sizeof(size_t)) < 0) {
     printf("Failed to write num_seats.\n");
     return 1;
   }
+
   if (write(req_fd, xs, num_seats * sizeof(size_t)) < 0) {
     printf("Failed to write xs.\n");
     return 1;
   }
+
   if (write(req_fd, ys, num_seats * sizeof(size_t)) < 0) {
     printf("Failed to write ys.\n");
     return 1;
@@ -255,7 +275,9 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
   if (resp_fd < 0) {
     return 1;
   }
+
   int result;
+
   if (read(resp_fd, &result, sizeof(int)) < 0) {
     printf("Failed to read result.\n");
     return 1;
@@ -266,12 +288,23 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
     return 1;
   }
 
+  // Close named pipes
   close(req_fd);
   close(resp_fd);
 
   return result;
 }
 
+/**
+ * Sends a show request to the Event Management System (EMS) server through
+ * named pipes, requesting information about a specific event, and writes the
+ * seat layout to the specified output file descriptor.
+ *
+ * @param out_fd     The file descriptor for the output where the seat layout
+ *                   information will be written.
+ * @param event_id   The unique identifier for the event to show.
+ * @return           0 on success, 1 on failure.
+ */
 int ems_show(int out_fd, int event_id) {
   // Send show request to server through named pipe
   int req_fd = open(session.req_pipe_path, O_WRONLY);
@@ -279,11 +312,13 @@ int ems_show(int out_fd, int event_id) {
     return 1;
   }
 
-  char op_code = 5;
+  char op_code = 5;  // op_code for show
+
   if (write(req_fd, &op_code, sizeof(char)) < 0) {
     printf("Failed to write op_code.\n");
     return 1;
   }
+
   if (write(req_fd, &event_id, sizeof(unsigned int)) < 0) {
     printf("Failed to write event_id.\n");
     return 1;
@@ -294,6 +329,7 @@ int ems_show(int out_fd, int event_id) {
   if (resp_fd < 0) {
     return 1;
   }
+
   int result;
 
   if (read(resp_fd, &result, sizeof(int)) < 0) {
@@ -305,7 +341,7 @@ int ems_show(int out_fd, int event_id) {
     perror("Server couldn't show.");
     return 1;
   }
-
+  // Read seat layout from server and write it to out_fd
   size_t num_rows;
   size_t num_cols;
 
@@ -314,14 +350,10 @@ int ems_show(int out_fd, int event_id) {
     return 1;
   }
 
-  printf("num_rows: %ld\n", num_rows);
-
   if (read(resp_fd, &num_cols, sizeof(size_t)) < 0) {
     printf("Failed to read num_cols.\n");
     return 1;
   }
-
-  printf("num_cols: %ld\n", num_cols);
 
   for (size_t i = 0; i < num_rows; i++) {
     for (size_t j = 0; j < num_cols; j++) {
@@ -337,6 +369,7 @@ int ems_show(int out_fd, int event_id) {
         return 1;
       }
     }
+
     // Add a newline after each row
     char newline = '\n';
     if (write(out_fd, &newline, 1) < 0) {
@@ -345,28 +378,37 @@ int ems_show(int out_fd, int event_id) {
     }
   }
 
+  // Close named pipes
   close(req_fd);
   close(resp_fd);
 
   return result;
 }
 
+/**
+ * Sends a request to the Event Management System (EMS) server to list available
+ * events through named pipes and writes the result to the specified output file descriptor.
+ *
+ * @param out_fd     The file descriptor for the output where the list of events
+ *                   information will be written.
+ * @return           0 on success, 1 on failure.
+ */
 int ems_list_events(int out_fd) {
-  printf("Sending list events request to server.\n");
-  // Send list events request to server through named pipe
+  // Open request pipe
   int req_fd = open(session.req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
     printf("Failed to open request pipe.\n");
     return 1;
   }
 
-  char op_code = 6;
+  // Send list events request to server
+  char op_code = 6;  // op_code for list events
+
   if (write(req_fd, &op_code, sizeof(char)) < 0) {
     printf("Failed to write op_code.\n");
     return 1;
   }
 
-  printf("Sending list events request.\n");
   // Handle server response
   int resp_fd = open(session.resp_pipe_path, O_RDONLY);
   if (resp_fd < 0) {
@@ -375,12 +417,11 @@ int ems_list_events(int out_fd) {
   }
 
   int result;
+
   if (read(resp_fd, &result, sizeof(int)) < 0) {
     printf("Failed to read result.\n");
     return 1;
   }
-
-  printf("result: %d\n", result);
 
   if (result == 1) {
     perror("Server couldn't list events.");
@@ -388,16 +429,18 @@ int ems_list_events(int out_fd) {
   }
 
   if (result == 2) {
-    write(out_fd, "No events\n", strlen("No events\n"));
+    if (write(out_fd, "No events\n", strlen("No events\n")) < 0) {
+      printf("Failed to write no events.\n");
+      return 1;
+    }
     return 1;
   }
 
+  // Write "Events:" to out_fd
   if (write(out_fd, "Events:", strlen("Events:")) < 0) {
     printf("Failed to write events.\n");
     return 1;
-  }
-
-  printf("Reading events from server.\n");
+  };
   // Read events from server and write them to out_fd
   if (result == 0) {
     size_t num_events;
@@ -418,6 +461,7 @@ int ems_list_events(int out_fd) {
         return 1;
       }
     }
+
     // Add a newline after listing all events
     char newline = '\n';
     if (write(out_fd, &newline, 1) < 0) {
@@ -426,6 +470,7 @@ int ems_list_events(int out_fd) {
     }
   }
 
+  // Close named pipes
   close(req_fd);
   close(resp_fd);
 
