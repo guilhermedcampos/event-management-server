@@ -59,8 +59,6 @@ int ems_setup(char const *req_pipe_p, char const *resp_pipe_p, char const *serve
   mkfifo(resp_pipe_path, 0666);
   mkfifo(req_pipe_path, 0666);
 
-  printf("Server pipe path: %s\n", server_pipe_path);
-
   // Connect to server pipe
   int server_fd = open(server_pipe_path, O_WRONLY);
   if (server_fd < 0) {
@@ -98,8 +96,6 @@ int ems_setup(char const *req_pipe_p, char const *resp_pipe_p, char const *serve
 
   // Read session_id from server
   read(resp_fd, &session.session_id, sizeof(int));
-
-  printf("Session ID: %d\n", session.session_id);
 
   // Copy named pipe paths to session struct
   strcpy(session.req_pipe_path, req_pipe_path);
@@ -403,6 +399,7 @@ int ems_show(int out_fd, int event_id) {
  */
 int ems_list_events(int out_fd) {
   // Open request pipe
+
   int req_fd = open(session.req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
     printf("Failed to open request pipe.\n");
@@ -442,45 +439,39 @@ int ems_list_events(int out_fd) {
   }
 
   if (result == 2) {
-    if (write(out_fd, "No events\n", strlen("No events\n")) < 0) {
-      printf("Failed to write no events.\n");
-      return 1;
-    }
+    write(out_fd, "No events\n", strlen("No events\n"));
     return 1;
   }
 
-  // Write "Events:" to out_fd
-  if (write(out_fd, "Events:", strlen("Events:")) < 0) {
-    printf("Failed to write events.\n");
-    return 1;
-  };
   // Read events from server and write them to out_fd
-  if (result == 0) {
-    size_t num_events;
-    if (read(resp_fd, &num_events, sizeof(size_t)) < 0) {
-      printf("Failed to read num_events.\n");
-      return 1;
-    }
-    for (size_t i = 0; i < num_events; i++) {
-      unsigned int event_id;
-      if (read(resp_fd, &event_id, sizeof(unsigned int)) < 0) {
-        printf("Failed to read event_id.\n");
-        return 1;
-      }
-      char id_str[64];
-      snprintf(id_str, 64, " %u", event_id);
-      if (write(out_fd, id_str, strlen(id_str)) < 0) {
-        printf("Failed to write id_str.\n");
-        return 1;
-      }
-    }
+  size_t num_events;
+  if (read(resp_fd, &num_events, sizeof(size_t)) < 0) {
+    printf("Failed to read num_events.\n");
+    return 1;
+  }
 
-    // Add a newline after listing all events
-    char newline = '\n';
-    if (write(out_fd, &newline, 1) < 0) {
-      printf("Failed to write newline.\n");
+
+  for (size_t i = 0; i < num_events; i++) {
+    unsigned int event_id;
+    if (read(resp_fd, &event_id, sizeof(unsigned int)) < 0) {
+      printf("Failed to read event_id.\n");
       return 1;
     }
+    char id_str[64];
+    if (write(out_fd, "Event: ", strlen("Event: ")) < 0) {
+      return 1;
+    }
+    snprintf(id_str, 64, "%u\n", event_id);
+    if (write(out_fd, id_str, strlen(id_str)) < 0) {
+      return 1;
+    }
+  }
+
+  // Add a newline after listing all events
+  char newline = '\n';
+  if (write(out_fd, &newline, 1) < 0) {
+    printf("Failed to write newline.\n");
+    return 1;
   }
 
   // Close named pipes

@@ -227,13 +227,15 @@ void* handle_client(void* args) {
         // Handle ems_list_events
         printf("Handling ems_list_events\n");
         read(request_pipe, &thread_args->session_id, sizeof(int));
-        ems_list_events(response_pipe);  // Assuming this function exists
+        printf("Sending response pipe path: %s\n", thread_args->response_pipe_path);
+        ems_list_events(response_pipe);
         break;
       default:
         printf("Unknown operation code: %d\n", op_code);
         break;
     }
   }
+  return NULL;
 }
 
 // Worker thread function

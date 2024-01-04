@@ -270,9 +270,11 @@ int ems_list_events(int out_fd) {
   // If there are events, write 0 followed by the number of events followed by the event ids
   write(out_fd, &result, sizeof(int));
   size_t num_events = 0;
+
+  // Iterate through the list and count the number of events
+
   while (1) {
     num_events++;
-
     if (current == to) {
       break;
     }
@@ -281,6 +283,8 @@ int ems_list_events(int out_fd) {
   }
 
   write(out_fd, &num_events, sizeof(size_t));
+
+  current = event_list->head;
 
   while (1) {
     write(out_fd, &(current->event)->id, sizeof(unsigned int));
