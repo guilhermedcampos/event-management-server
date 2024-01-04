@@ -16,10 +16,27 @@ typedef struct {
 
 Session session;
 
-int ems_setup(char const *req_pipe_path, char const *resp_pipe_path, char const *server_pipe_path) {
+int ems_setup(char const *req_pipe_p, char const *resp_pipe_p, char const *server_pipe_p) {
+  // Create buffer for pipe path with size MAX_PATH
+  char resp_pipe_path[MAX_PATH];
+  char req_pipe_path[MAX_PATH];
+  char server_pipe_path[MAX_PATH];
+
+  // Create response and request pipes as a string with filles with \0 characters using memset
+  memset(server_pipe_path, '\0', MAX_PATH);
+  memset(resp_pipe_path, '\0', MAX_PATH);
+  memset(req_pipe_path, '\0', MAX_PATH);
+
+  // Copy the pipe path to the buffer
+  strcpy(server_pipe_path, server_pipe_p);
+  strcpy(resp_pipe_path, resp_pipe_p);
+  strcpy(req_pipe_path, req_pipe_p);
+
   // Create request and response pipes
   mkfifo(resp_pipe_path, 0666);
   mkfifo(req_pipe_path, 0666);
+
+  printf("Server pipe path: %s\n", server_pipe_path);
 
   // Connect to server pipe
   int server_fd = open(server_pipe_path, O_WRONLY);
@@ -112,6 +129,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
 
   if (result == 1) {
     perror("Server couldnt create.");
+    return 1;
   }
 
   close(req_fd);
@@ -144,6 +162,7 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
 
   if (result == 1) {
     perror("Server couldn't reserve.");
+    return 1;
   }
 
   close(req_fd);
@@ -174,6 +193,7 @@ int ems_show(int out_fd, int event_id) {
 
   if (result == 1) {
     perror("Server couldn't show.");
+    return 1;
   }
 
   size_t num_rows;
@@ -232,6 +252,11 @@ int ems_list_events(int out_fd) {
 
   if (result == 1) {
     perror("Server couldn't list events.");
+    return 1;
+  }
+
+  if (result == 2) {
+    write(out_fd, "No events\n", strlen("No events\n"));
     return 1;
   }
 

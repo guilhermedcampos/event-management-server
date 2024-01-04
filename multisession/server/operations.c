@@ -1,9 +1,9 @@
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <fcntl.h>
 
 #include "common/io.h"
 #include "eventlist.h"
@@ -258,9 +258,10 @@ int ems_list_events(int out_fd) {
   struct ListNode* to = event_list->tail;
   struct ListNode* current = event_list->head;
 
+  result = 2;
+
   if (current == NULL) {
     write(out_fd, &result, sizeof(int));
-    // write(out_fd, "No events", strlen("No events"));
     pthread_rwlock_unlock(&event_list->rwl);
     return 1;
   }
