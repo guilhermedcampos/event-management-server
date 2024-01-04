@@ -133,9 +133,18 @@ int main(int argc, char* argv[]) {
 
       case EOC:
         printf("End of commands\n");
-        close(in_fd);
-        close(out_fd);
-        ems_quit();
+        if (close(in_fd) == -1) {
+          fprintf(stderr, "Failed to close input file. Path: %s\n", argv[4]);
+          return 1;
+        }
+        if (close(out_fd) == -1) {
+          fprintf(stderr, "Failed to close output file. Path: %s\n", out_path);
+          return 1;
+        }
+        if (ems_quit()) {
+          fprintf(stderr, "Failed to quit EMS\n");
+          return 1;
+        }
         return 0;
     }
   }

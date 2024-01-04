@@ -102,8 +102,14 @@ int ems_setup(char const *req_pipe_p, char const *resp_pipe_p, char const *serve
   strcpy(session.resp_pipe_path, resp_pipe_path);
 
   // Close named pipes
-  close(server_fd);
-  close(resp_fd);
+  if(close(server_fd) < 0) {
+    printf("Failed to close server pipe.\n");
+    return 1;
+  }
+  if(close(resp_fd) < 0) {
+    printf("Failed to close response pipe.\n");
+    return 1;
+  }
 
   return 0;
 }
@@ -136,12 +142,18 @@ int ems_quit() {
   }
 
   // Close named pipes
-  close(req_fd);
+  if(close(req_fd) < 0) {
+    printf("Failed to close request pipe.\n");
+    return 1;
+  }
 
   // Open response pipe
   int resp_fd = open(session.resp_pipe_path, O_RDONLY);
   if (resp_fd >= 0) {
-    close(resp_fd);
+    if(close(resp_fd) < 0) {
+      printf("Failed to close response pipe.\n");
+      return 1;
+    }
   }
 
   // Delete client named pipes
@@ -214,8 +226,14 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   }
 
   // Close named pipes
-  close(req_fd);
-  close(resp_fd);
+  if(close(req_fd) < 0) {
+    printf("Failed to close request pipe.\n");
+    return 1;
+  }
+  if(close(resp_fd) < 0) {
+    printf("Failed to close response pipe.\n");
+    return 1;
+  }
 
   return result;
 }
@@ -288,8 +306,14 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
   }
 
   // Close named pipes
-  close(req_fd);
-  close(resp_fd);
+  if(close(req_fd) < 0) {
+    printf("Failed to close request pipe.\n");
+    return 1;
+  }
+  if(close(resp_fd) < 0) {
+    printf("Failed to close response pipe.\n");
+    return 1;
+  }
 
   return result;
 }
@@ -383,8 +407,14 @@ int ems_show(int out_fd, int event_id) {
   }
 
   // Close named pipes
-  close(req_fd);
-  close(resp_fd);
+  if(close(req_fd) < 0) {
+    printf("Failed to close request pipe.\n");
+    return 1;
+  }
+  if(close(resp_fd) < 0) {
+    printf("Failed to close response pipe.\n");
+    return 1;
+  }
 
   return result;
 }
@@ -399,7 +429,6 @@ int ems_show(int out_fd, int event_id) {
  */
 int ems_list_events(int out_fd) {
   // Open request pipe
-
   int req_fd = open(session.req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
     printf("Failed to open request pipe.\n");
@@ -474,8 +503,14 @@ int ems_list_events(int out_fd) {
   }
 
   // Close named pipes
-  close(req_fd);
-  close(resp_fd);
+  if(close(req_fd) < 0) {
+    printf("Failed to close request pipe.\n");
+    return 1;
+  }
+  if(close(resp_fd) < 0) {
+    printf("Failed to close response pipe.\n");
+    return 1;
+  }
 
   return result;
 }

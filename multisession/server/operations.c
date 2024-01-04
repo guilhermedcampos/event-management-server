@@ -53,6 +53,7 @@ int ems_init(unsigned int delay_us) {
   }
 
   event_list = create_list();
+
   state_access_delay_us = delay_us;
 
   return event_list == NULL;
@@ -95,7 +96,6 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
     return 1;
   }
 
-  printf("Locking event list rwl\n");
   if (pthread_rwlock_wrlock(&event_list->rwl) != 0) {
     fprintf(stderr, "Error locking list rwl\n");
     return 1;
@@ -107,7 +107,6 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
     return 1;
   }
 
-  printf("Creating event\n");
   struct Event* event = malloc(sizeof(struct Event));
 
   if (event == NULL) {
@@ -262,13 +261,6 @@ int ems_show(int response_fd, unsigned int event_id) {
   printf("No errors\n ");
   // No more errors, write success code
   result = 0;
-
-  // If the event is found, write 0 followed by the number of rows and columns followed by the seat data
-  printf("Sending to client the result: %ls", &result);
-  printf("Sending to client the rows: %zu", &event->rows);
-  printf("Sending to client the cols: %zu", &event->cols);
-
-  printf("Sending to response_fd: %d", response_fd);
 
   // Write the result, rows, and cols to the buffer
   write(response_fd, &result, sizeof(int));
