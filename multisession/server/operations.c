@@ -11,12 +11,14 @@
 static struct EventList* event_list = NULL;
 static unsigned int state_access_delay_us = 0;
 
-/// Gets the event with the given ID from the state.
-/// @note Will wait to simulate a real system accessing a costly memory resource.
-/// @param event_id The ID of the event to get.
-/// @param from First node to be searched.
-/// @param to Last node to be searched.
-/// @return Pointer to the event if found, NULL otherwise.
+/**
+ * Gets the event with the given ID from the state.
+ * 
+ * @note Will wait to simulate a real system accessing a costly memory resource.
+ * @param event_id The ID of the event to get.
+ * @param from First node to be searched.
+ * @param to Last node to be searched.
+ * @return Pointer to the event if found, NULL otherwise.
 static struct Event* get_event_with_delay(unsigned int event_id, struct ListNode* from, struct ListNode* to) {
   struct timespec delay = {0, state_access_delay_us * 1000};
   nanosleep(&delay, NULL);  // Should not be removed
@@ -24,12 +26,15 @@ static struct Event* get_event_with_delay(unsigned int event_id, struct ListNode
   return get_event(event_list, event_id, from, to);
 }
 
-/// Gets the index of a seat.
-/// @note This function assumes that the seat exists.
-/// @param event Event to get the seat index from.
-/// @param row Row of the seat.
-/// @param col Column of the seat.
-/// @return Index of the seat.
+/** 
+ * Gets the index of a seat.
+ * 
+ * @note This function assumes that the seat exists.
+ * @param event Event to get the seat index from.
+ * @param row Row of the seat.
+ * @param col Column of the seat.
+ * @return Index of the seat.
+ */
 static size_t seat_index(struct Event* event, size_t row, size_t col) { return (row - 1) * event->cols + col - 1; }
 
 /**
