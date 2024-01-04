@@ -172,6 +172,7 @@ void* handle_client(void* args) {
     printf("Operation code: %d\n", op_code);
     switch (op_code) {
       case 2:  // ems_quit
+        read(request_pipe, &thread_args->session_id, sizeof(int));
         printf("Session %d terminated\n", thread_args->session_id);
 
         // Close the pipes
@@ -190,6 +191,7 @@ void* handle_client(void* args) {
       case 3:  // ems_create
         // Handle ems_create
         printf("Handling ems_create\n");
+        read(request_pipe, &thread_args->session_id, sizeof(int));
         read(request_pipe, &event_id, sizeof(unsigned int));
         printf("Event id: %d\n", event_id);
         read(request_pipe, &num_rows, sizeof(size_t));
@@ -204,6 +206,7 @@ void* handle_client(void* args) {
       case 4:  // ems_reserve
         // Handle ems_reserve
         printf("Handling ems_reserve\n");
+        read(request_pipe, &thread_args->session_id, sizeof(int));
         read(request_pipe, &event_id, sizeof(unsigned int));
         read(request_pipe, &num_seats, sizeof(size_t));
         read(request_pipe, xs, num_seats * sizeof(size_t));
@@ -214,6 +217,7 @@ void* handle_client(void* args) {
       case 5:  // ems_show
         // Handle ems_show
         printf("Handling ems_show\n");
+        read(request_pipe, &thread_args->session_id, sizeof(int));
         read(request_pipe, &event_id, sizeof(unsigned int));
         printf("Event id: %d\n", event_id);
         printf("Sending response pipe path: %s\n", thread_args->response_pipe_path);
@@ -222,6 +226,7 @@ void* handle_client(void* args) {
       case 6:  // ems_list_events
         // Handle ems_list_events
         printf("Handling ems_list_events\n");
+        read(request_pipe, &thread_args->session_id, sizeof(int));
         ems_list_events(response_pipe);  // Assuming this function exists
         break;
       default:
