@@ -38,6 +38,9 @@ pthread_cond_t not_empty_cond = PTHREAD_COND_INITIALIZER;
 // Condition variable to signal that the buffer is not full
 pthread_cond_t not_full_cond = PTHREAD_COND_INITIALIZER;
 
+// Mutex to protect the sessions array
+pthread_mutex_t sessions_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 // Server pipe file descriptor
 int server_fd;
 
@@ -48,9 +51,6 @@ struct MainThreadArgs {
 
 // int to store the number of active threads
 int session_counter = 0;
-
-// Mutex to protect the sessions array
-pthread_mutex_t sessions_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /**
  * Removes a session from the buffer.
@@ -81,7 +81,9 @@ void remove_session(int session_id) {
   // Signal that the buffer is not full
   pthread_cond_signal(&not_full_cond);
 
-  pthread_mutex_unlock(&buffer_mutex);
+  if (pthread_mutex_unlock(&buffer_mutex) != 0) {
+    perror("Error unlocking mutex");
+  }
 }
 
 /**
@@ -92,7 +94,9 @@ void remove_session(int session_id) {
  */
 int insert_request(struct Request* request) {
   // Lock the buffer mutex for thread safety
-  pthread_mutex_lock(&buffer_mutex);
+  if (pthread_mutex_lock(&buffer_mutex) != 0) {
+    perror("Error locking mutex");
+  }
 
   // Wait if the buffer is full
   while (count == MAX_SESSION_COUNT) {
@@ -113,7 +117,9 @@ int insert_request(struct Request* request) {
   pthread_cond_signal(&not_empty_cond);
 
   // Unlock the buffer mutex
-  pthread_mutex_unlock(&buffer_mutex);
+  if (pthread_mutex_unlock(&buffer_mutex) != 0) {
+    perror("Error unlocking mutex");
+  }
 
   return session_id;
 }
@@ -124,14 +130,18 @@ int insert_request(struct Request* request) {
  * @param request The pointer to the Request structure to store the retrieved request.
  */
 void retrieve_request(struct Request* request) {
-  pthread_mutex_lock(&buffer_mutex);
+  if (pthread_mutex_lock(&buffer_mutex) != 0) {
+    perror("Error locking mutex");
+  }
 
   // Retrieve the request from the buffer
   *request = buffer[out];               // Copy the request
   out = (out + 1) % MAX_SESSION_COUNT;  // Update the out index
   count--;
 
-  pthread_mutex_unlock(&buffer_mutex);
+  if (pthread_mutex_unlock(&buffer_mutex) != 0) {
+    perror("Error unlocking mutex");
+  }
 }
 
 /**
@@ -204,9 +214,13 @@ void* handle_client(void* args) {
         }
 
         // Remove the session from the buffer
-        pthread_mutex_lock(&sessions_mutex);
+        if (pthread_mutex_lock(&sessions_mutex) != 0) {
+          perror("Error locking mutex");
+        }
         remove_session(thread_args->session_id);
-        pthread_mutex_unlock(&sessions_mutex);
+        if (pthread_mutex_unlock(&sessions_mutex) != 0) {
+          perror("Error unlocking mutex");
+        }
 
         // Free the memory allocated for the thread arguments
         free(thread_args);
@@ -439,14 +453,6 @@ void* extract_requests(void* args) {
         break;
       }
 
-      // Remove the "server/" prefix from the pipe paths
-      if (strncmp(request_pipe_path, "server/", 7) == 0) {
-        memmove(request_pipe_path, request_pipe_path + 7, strlen(request_pipe_path) - 6);
-      }
-      if (strncmp(response_pipe_path, "server/", 7) == 0) {
-        memmove(response_pipe_path, response_pipe_path + 7, strlen(response_pipe_path) - 6);
-      }
-
       struct Request request;
       request.session_id = -1;
       snprintf(request.request_pipe_path, MAX_PATH, "%s", request_pipe_path);
@@ -551,6 +557,10 @@ int main(int argc, char* argv[]) {
     ems_terminate();
     return 1;
   }
-  unlink(server_pipe_path);
+  if (unlink(server_pipe_path) == -1) {
+    perror("Error unlinking server pipe");
+    ems_terminate();
+    return 1;
+  }
   ems_terminate();
 }

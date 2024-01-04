@@ -34,6 +34,10 @@ int ems_setup(char const *req_pipe_p, char const *resp_pipe_p, char const *serve
   char req_pipe_path[MAX_PATH];
   char server_pipe_path[MAX_PATH];
 
+  printf("req_pipe_p: %s\n", req_pipe_p);
+  printf("resp_pipe_p: %s\n", resp_pipe_p);
+  printf("server_pipe_p: %s\n", server_pipe_p);
+
   // Fill buffer with null bytes
   if (memset(server_pipe_path, '\0', MAX_PATH) == NULL) {
     printf("Failed to memset server_pipe_path.\n");
@@ -56,8 +60,14 @@ int ems_setup(char const *req_pipe_p, char const *resp_pipe_p, char const *serve
   strcpy(req_pipe_path, req_pipe_p);
 
   // Create request and response pipes with permissions read and write
-  mkfifo(resp_pipe_path, 0666);
-  mkfifo(req_pipe_path, 0666);
+  if (mkfifo(resp_pipe_path, 0666) < 0) {
+    printf("Failed to create response pipe.\n");
+    return 1;
+  }
+  if (mkfifo(req_pipe_path, 0666) < 0) {
+    printf("Failed to create request pipe.\n");
+    return 1;
+  }
 
   // Connect to server pipe
   int server_fd = open(server_pipe_path, O_WRONLY);
@@ -102,11 +112,11 @@ int ems_setup(char const *req_pipe_p, char const *resp_pipe_p, char const *serve
   strcpy(session.resp_pipe_path, resp_pipe_path);
 
   // Close named pipes
-  if(close(server_fd) < 0) {
+  if (close(server_fd) < 0) {
     printf("Failed to close server pipe.\n");
     return 1;
   }
-  if(close(resp_fd) < 0) {
+  if (close(resp_fd) < 0) {
     printf("Failed to close response pipe.\n");
     return 1;
   }
@@ -142,7 +152,7 @@ int ems_quit() {
   }
 
   // Close named pipes
-  if(close(req_fd) < 0) {
+  if (close(req_fd) < 0) {
     printf("Failed to close request pipe.\n");
     return 1;
   }
@@ -150,7 +160,7 @@ int ems_quit() {
   // Open response pipe
   int resp_fd = open(session.resp_pipe_path, O_RDONLY);
   if (resp_fd >= 0) {
-    if(close(resp_fd) < 0) {
+    if (close(resp_fd) < 0) {
       printf("Failed to close response pipe.\n");
       return 1;
     }
@@ -226,11 +236,11 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   }
 
   // Close named pipes
-  if(close(req_fd) < 0) {
+  if (close(req_fd) < 0) {
     printf("Failed to close request pipe.\n");
     return 1;
   }
-  if(close(resp_fd) < 0) {
+  if (close(resp_fd) < 0) {
     printf("Failed to close response pipe.\n");
     return 1;
   }
@@ -306,11 +316,11 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
   }
 
   // Close named pipes
-  if(close(req_fd) < 0) {
+  if (close(req_fd) < 0) {
     printf("Failed to close request pipe.\n");
     return 1;
   }
-  if(close(resp_fd) < 0) {
+  if (close(resp_fd) < 0) {
     printf("Failed to close response pipe.\n");
     return 1;
   }
@@ -407,11 +417,11 @@ int ems_show(int out_fd, int event_id) {
   }
 
   // Close named pipes
-  if(close(req_fd) < 0) {
+  if (close(req_fd) < 0) {
     printf("Failed to close request pipe.\n");
     return 1;
   }
-  if(close(resp_fd) < 0) {
+  if (close(resp_fd) < 0) {
     printf("Failed to close response pipe.\n");
     return 1;
   }
@@ -503,11 +513,11 @@ int ems_list_events(int out_fd) {
   }
 
   // Close named pipes
-  if(close(req_fd) < 0) {
+  if (close(req_fd) < 0) {
     printf("Failed to close request pipe.\n");
     return 1;
   }
-  if(close(resp_fd) < 0) {
+  if (close(resp_fd) < 0) {
     printf("Failed to close response pipe.\n");
     return 1;
   }
