@@ -380,7 +380,7 @@ int ems_show(int out_fd, int event_id) {
   }
 
   if (result == 1) {
-    perror("Server couldn't show.");
+    perror("Server couldn't show.\n");
     return 1;
   }
   // Read seat layout from server and write it to out_fd
@@ -493,28 +493,36 @@ int ems_list_events(int out_fd) {
     return 1;
   }
 
-  for (size_t i = 0; i < num_events; i++) {
-    unsigned int event_id;
-    if (my_read(resp_fd, &event_id, sizeof(unsigned int)) == -1) {
-      printf("Failed to read event_id.\n");
-      return 1;
-    }
-    char id_str[64];
-    if (my_write(out_fd, "Event: ", strlen("Event: ")) == -1) {
-      return 1;
-    }
-    snprintf(id_str, 64, "%u\n", event_id);
-    if (my_write(out_fd, id_str, strlen(id_str)) == -1) {
-      return 1;
-    }
-  }
-
-  // Add a newline after listing all events
-  char newline = '\n';
-  if (my_write(out_fd, &newline, 1) == -1) {
-    printf("Failed to write newline.\n");
+ for (size_t i = 0; i < num_events; i++) {
+  unsigned int event_id;
+  if (my_read(resp_fd, &event_id, sizeof(unsigned int)) == -1) {
+    printf("Failed to read event_id.\n");
     return 1;
   }
+  char id_str[64];
+  if (my_write(out_fd, "Event: ", strlen("Event: ")) == -1) {
+    return 1;
+  }
+  snprintf(id_str, 64, "%u", event_id);  // Removed '\n' from here
+  if (my_write(out_fd, id_str, strlen(id_str)) == -1) {
+    return 1;
+  }
+  // Add a newline after each event, except for the last one
+  if (i < num_events - 1) {
+    char newline = '\n';
+    if (my_write(out_fd, &newline, 1) == -1) {
+      printf("Failed to write newline.\n");
+      return 1;
+    }
+  }
+}
+
+// Add a newline after listing all events
+char newline = '\n';
+if (my_write(out_fd, &newline, 1) == -1) {
+  printf("Failed to write newline.\n");
+  return 1;
+}
 
   // Close named pipes
   if (close(req_fd) < 0) {
