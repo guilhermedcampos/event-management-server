@@ -322,6 +322,11 @@ int ems_show(int out_fd, int event_id) {
     return 1;
   }
 
+  if (write(req_fd, &session.session_id, sizeof(int)) < 0) {
+    printf("Failed to write session_id.\n");
+    return 1;
+  }
+
   if (write(req_fd, &event_id, sizeof(unsigned int)) < 0) {
     printf("Failed to write event_id.\n");
     return 1;
@@ -409,6 +414,11 @@ int ems_list_events(int out_fd) {
 
   if (write(req_fd, &op_code, sizeof(char)) < 0) {
     printf("Failed to write op_code.\n");
+    return 1;
+  }
+
+  if (write(req_fd, &session.session_id, sizeof(int)) < 0) {
+    printf("Failed to write session_id.\n");
     return 1;
   }
 
