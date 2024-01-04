@@ -524,15 +524,15 @@ int ems_list_events(int out_fd) {
     return 1;
   }
 
-    // Close named pipes
-    if (close(req_fd) < 0) {
-      printf("Failed to close request pipe.\n");
-      return 1;
-    }
-    if (close(resp_fd) < 0) {
-      printf("Failed to close response pipe.\n");
-      return 1;
-    }
+  // Close named pipes
+  if (close(req_fd) < 0) {
+    printf("Failed to close request pipe.\n");
+    return 1;
+  }
+  if (close(resp_fd) < 0) {
+    printf("Failed to close response pipe.\n");
+    return 1;
+  }
 
-    return result;
+  return result;
 }
