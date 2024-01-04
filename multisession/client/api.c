@@ -6,14 +6,17 @@
 
 #include "common/constants.h"
 
-// Session struct to store session_id and named pipe paths
+/**
+ * Represents a session in the Event Management System (EMS), storing the
+ * session ID and paths to the named pipes for requests and responses.
+ */
 typedef struct {
-  int session_id;
-  char req_pipe_path[MAX_PATH];
-  char resp_pipe_path[MAX_PATH];
+  int session_id;                 // The unique identifier for the session.
+  char req_pipe_path[MAX_PATH];   // The path to the named pipe for requests.
+  char resp_pipe_path[MAX_PATH];  // The path to the named pipe for responses.
 } Session;
 
-// Session variable to store session_id and named pipe paths
+// Global variable to store session information
 Session session;
 
 /**
