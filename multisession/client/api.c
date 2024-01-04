@@ -450,7 +450,6 @@ int ems_list_events(int out_fd) {
     return 1;
   }
 
-
   for (size_t i = 0; i < num_events; i++) {
     unsigned int event_id;
     if (read(resp_fd, &event_id, sizeof(unsigned int)) < 0) {
