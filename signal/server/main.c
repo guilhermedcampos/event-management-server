@@ -55,7 +55,17 @@ struct MainThreadArgs {
 int session_counter = 0;
 
 // int to store the flag to print event info
-volatile int print_flag = 0;
+int print_flag = 0;
+
+void sigusr1_handler(int signum ) {
+  // Set the flag to print event info
+  if (signum == SIGUSR1) {
+    printf("H: SIGUSR1 received\n");
+    print_flag = 1; 
+    printf("H: print_flag set with %d\n", print_flag);
+  }
+   signal(SIGUSR1, sigusr1_handler);
+}
 
 /**
  * Removes a session from the buffer.
@@ -81,6 +91,7 @@ void remove_session(int session_id) {
   buffer[i].server_pipe_path[0] = '\0';
 
   // Decrement the number of active sessions
+  session_counter--;
   count--;
 
   // Signal that the buffer is not full
@@ -108,8 +119,6 @@ int insert_request(struct Request* request) {
     pthread_cond_wait(&not_full_cond, &buffer_mutex);
   }
 
-  // Increment the session counter and assign the session ID
-  session_counter++;
   int session_id = session_counter;
 
   // Insert the request into the buffer
@@ -117,6 +126,8 @@ int insert_request(struct Request* request) {
   buffer[in].session_id = session_id;  // Assign the session_id
   in = (in + 1) % MAX_SESSION_COUNT;
   count++;
+  // Increment the session counter and assign the session ID
+  session_counter++;
 
   // Signal that the buffer is not empty
   pthread_cond_signal(&not_empty_cond);
@@ -183,6 +194,8 @@ void* handle_client(void* args) {
     perror("Error writing to named pipe");
     pthread_exit(NULL);
   }
+
+  printf("Session %d started\n", thread_args->session_id);
 
   // Handle client requests
   char op_code;
@@ -431,6 +444,7 @@ int print_events() {
     struct EventList* events = get_event_list();
     printf("ENTROU NO PRINT_EVENTS\n");
 
+    // Get the tail of the list
     struct ListNode* to = events->tail;
     struct ListNode* current = events->head;
 
@@ -443,8 +457,9 @@ int print_events() {
       if (current == to) {
         break;
       }
-      print_str(STDOUT_FILENO, "!Event: \n");
+      print_str(STDOUT_FILENO, "Event: ");
       print_uint(STDOUT_FILENO, current->event->id);
+      print_str(STDOUT_FILENO, "\n");
       if (ems_show_stdout(current->event->id) == 1) {
         printf("H: Error printing event\n");
         return 1;
@@ -465,26 +480,28 @@ int print_events() {
 void* extract_requests(void* args) {
   struct MainThreadArgs* main_args = (struct MainThreadArgs*)args;  // Cast the arguments to the correct type
 
-  // Loop to populate the sessions array with session IDs and associated pipes
   while (1) {
   
-    int local_print_flag = print_flag;
-    printf("Local print flag: %d\n", local_print_flag);
+    printf("Print flag: %d\n", print_flag);
 
     // Check if the print_flag is set
-    if (local_print_flag == 1) {
+    if (print_flag == 1) {
       printf("H: Printing events to standard output:\n");
       print_events();
       // Reset print_flag
       print_flag = 0;
     }
 
-    char op_code;
+    printf("estou depois do if da flag\n");
+
+    char op_code = 0;
     // Read the operation code from the server pipe
-    if (my_read(server_fd, &op_code, sizeof(char)) == -1) {
-      perror("Error reading from named pipe");
+    if (read(server_fd, &op_code, sizeof(char)) == -1) {
+      printf("H: Error reading from named pipe\n");
       break;
     }
+
+    printf("H: Leu Operation code: %d\n", op_code);
 
     if (op_code == 1) {
       printf("H: Handling request\n");
@@ -518,13 +535,6 @@ void* extract_requests(void* args) {
   return NULL;
 }
 
-void sigusr1_handler(int signum ) {
-  // Set the flag to print event info
-  if (signum == SIGUSR1) {
-    printf("H: SIGUSR1 received\n");
-    print_flag = 1; 
-  }
-}
 /**
  * The main function for the EMS server program.
  *
@@ -538,7 +548,7 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "Usage: %s\n <server_pipe_path> [delay]\n", argv[0]);
     return 1;
   }
-
+  
   // Set the state access delay if provided
   char* endptr;
   unsigned int state_access_delay_us = STATE_ACCESS_DELAY_US;
@@ -560,13 +570,14 @@ int main(int argc, char* argv[]) {
   }
 
   char* server_pipe_path = argv[1];
-  ;
   // Create a named pipe for reading and writing
   if (mkfifo(server_pipe_path, 0666) == -1) {
     perror("Error creating named pipe");
     ems_terminate();
     return 1;
   }
+
+  signal(SIGUSR1, sigusr1_handler);
 
   // Open the pipe for reading and writing
   server_fd = open(server_pipe_path, O_RDWR);
@@ -592,8 +603,6 @@ int main(int argc, char* argv[]) {
   printf("Host thread created\n");
 
   // Set the SIGUSR1 signal handler
-  signal(SIGUSR1, sigusr1_handler);
-  //pthread_kill(, SIGUSR1);
   printf("SIGUSR1 handler set\n");
 
   // Create worker threads

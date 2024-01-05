@@ -13,17 +13,21 @@ ssize_t my_read(int fd, void* buffer, size_t size) {
     ssize_t done = 0;
     ssize_t new_size = (ssize_t) size;
     while (done < new_size) {
-        ssize_t bytes_read = read(fd, (char*)buffer + done, (size_t)(new_size - done));
-        if (bytes_read < 0) {
-            fprintf(stderr, "Read error: %s\n", strerror(errno));
-            return -1;
-        }
+      printf("Passou0\n");
+      printf("Passou1\n");
+      ssize_t bytes_read = read(fd, (char*)buffer + done, (size_t)(new_size - done));
+      printf("bytes lidos: %zu\n", bytes_read);
+      if (bytes_read < 0) {
+          fprintf(stderr, "Read error: %s\n", strerror(errno));
+          return -1;
+      }
+      printf("Passou2\n");
 
-        // if we read 0 bytes, we're done
-        if (bytes_read == 0)
-            break;
+      // if we read 0 bytes, we're done
+      if (bytes_read == 0)
+          break;
 
-        done += bytes_read;
+      done += bytes_read;
     }
 
     return done;
