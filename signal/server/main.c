@@ -211,7 +211,7 @@ void* handle_client(void* args) {
         printf("Handling ems_quit in session %d\n", thread_args->session_id);
         // Read the session ID from the request pipe
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-          perror("Error reading from named pipe");
+          perror("1Error reading from named pipe");
           result = 1;
         }
 
@@ -253,7 +253,7 @@ void* handle_client(void* args) {
         //printf("Handling ems_create in session %d\n", thread_args->session_id);
 
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-          perror("Error reading from named pipe");
+          perror("2Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             perror("Error writing to named pipe");
@@ -262,7 +262,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, &event_id, sizeof(unsigned int)) == -1) {
-          perror("Error reading from named pipe");
+          perror("3Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             perror("Error writing to named pipe");
@@ -271,7 +271,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, &num_rows, sizeof(size_t)) == -1) {
-          perror("Error reading from named pipe");
+          perror("4Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             perror("Error writing to named pipe");
@@ -280,7 +280,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, &num_cols, sizeof(size_t)) == -1) {
-          perror("Error reading from named pipe");
+          perror("5Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             perror("Error writing to named pipe");
@@ -301,7 +301,7 @@ void* handle_client(void* args) {
         //printf("Handling ems_reserve in session %d\n", thread_args->session_id);
 
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-          perror("Error reading from named pipe");
+          perror("6Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             perror("Error writing to named pipe");
@@ -310,7 +310,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, &event_id, sizeof(unsigned int)) == -1) {
-          perror("Error reading from named pipe");
+          perror("7Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             perror("Error writing to named pipe");
@@ -319,7 +319,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, &num_seats, sizeof(size_t)) == -1) {
-          perror("Error reading from named pipe");
+          perror("8Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             perror("Error writing to named pipe");
@@ -328,7 +328,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, xs, num_seats * sizeof(size_t)) == -1) {
-          perror("Error reading from named pipe");
+          perror("9Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             perror("Error writing to named pipe");
@@ -337,7 +337,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, ys, num_seats * sizeof(size_t)) == -1) {
-          perror("Error reading from named pipe");
+          perror("10Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             perror("Error writing to named pipe");
@@ -358,7 +358,7 @@ void* handle_client(void* args) {
         //printf("Handling ems_show in session %d\n", thread_args->session_id);
 
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-          perror("Error reading from named pipe");
+          perror("11Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             perror("Error writing to named pipe");
@@ -367,7 +367,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, &event_id, sizeof(unsigned int)) == -1) {
-          perror("Error reading from named pipe");
+          perror("12Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             perror("Error writing to named pipe");
@@ -386,7 +386,7 @@ void* handle_client(void* args) {
         //printf("Handling ems_list_events in session %d\n", thread_args->session_id);
 
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-          perror("Error reading from named pipe");
+          perror("13Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             perror("Error writing to named pipe");
@@ -477,12 +477,21 @@ int print_events() {
  * @param args The pointer to the MainThreadArgs structure containing the server pipe path.
  * @return NULL
  */
-void* extract_requests(void* args) {
+void extract_requests(void* args) {
   struct MainThreadArgs* main_args = (struct MainThreadArgs*)args;  // Cast the arguments to the correct type
 
   while (1) {
   
     printf("Print flag: %d\n", print_flag);
+
+    char op_code = 0;
+    
+    // Read the operation code from the server pipe
+    ssize_t res = my_read(server_fd, &op_code, sizeof(char));
+    if (res == -1) {
+      perror("Error reading from named pipe");
+      break;
+    }
 
     // Check if the print_flag is set
     if (print_flag == 1) {
@@ -490,15 +499,7 @@ void* extract_requests(void* args) {
       print_events();
       // Reset print_flag
       print_flag = 0;
-    }
-
-    printf("estou depois do if da flag\n");
-
-    char op_code = 0;
-    // Read the operation code from the server pipe
-    if (read(server_fd, &op_code, sizeof(char)) == -1) {
-      printf("H: Error reading from named pipe\n");
-      break;
+      continue;
     }
 
     printf("H: Leu Operation code: %d\n", op_code);
@@ -510,14 +511,14 @@ void* extract_requests(void* args) {
 
       // Read the request pipe path from the server pipe
       if (my_read(server_fd, &request_pipe_path, MAX_PATH) == -1) {
-        perror("Error reading from named pipe");
+        perror("15Error reading from named pipe");
         break;
       }
 
       // Obtain the second named pipe for the new session
       char response_pipe_path[MAX_PATH];
       if (my_read(server_fd, &response_pipe_path, MAX_PATH) == -1) {
-        perror("Error reading from named pipe");
+        perror("16Error reading from named pipe");
         break;
       }
 
@@ -532,7 +533,6 @@ void* extract_requests(void* args) {
       printf("H: Request inserted\n");
     }
   }
-  return NULL;
 }
 
 /**
@@ -592,18 +592,10 @@ int main(int argc, char* argv[]) {
 
   // Copy the server pipe path to the main thread arguments
   snprintf(main_args.server_pipe_path, MAX_PATH, "%s", server_pipe_path);
-  pthread_t host_thread;
+  //pthread_t host_thread;
 
-  // Create the host thread
-  if (pthread_create(&host_thread, NULL, extract_requests, (void*)&main_args) != 0) {
-    perror("Error creating thread");
-    return 1;
-  }
 
-  printf("Host thread created\n");
 
-  // Set the SIGUSR1 signal handler
-  printf("SIGUSR1 handler set\n");
 
   // Create worker threads
   pthread_t worker_threads[MAX_SESSION_COUNT];
@@ -615,13 +607,12 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  extract_requests(&main_args); 
+
   // Wait for all threads to finish before exiting
   for (int i = 0; i < MAX_SESSION_COUNT; ++i) {
     pthread_join(worker_threads[i], NULL);
   }
-
-  // Wait for the host thread to finish
-  pthread_join(host_thread, NULL);
 
   if (close(server_fd) == -1) {
     perror("Error closing server pipe");

@@ -16,10 +16,13 @@ ssize_t my_read(int fd, void* buffer, size_t size) {
       printf("Passou0\n");
       printf("Passou1\n");
       ssize_t bytes_read = read(fd, (char*)buffer + done, (size_t)(new_size - done));
-      printf("bytes lidos: %zu\n", bytes_read);
       if (bytes_read < 0) {
-          fprintf(stderr, "Read error: %s\n", strerror(errno));
-          return -1;
+          if (errno == EINTR) {
+              return -2;
+          } else {
+              fprintf(stderr, "Read error: %s\n", strerror(errno));
+              return -1;
+          }
       }
       printf("Passou2\n");
 
