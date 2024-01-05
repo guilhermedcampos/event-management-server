@@ -33,6 +33,8 @@ clean:
 	rm -f a2*
 	rm -f b1*
 	rm -f b2*
+	rm -f c1*
+	rm -f c2*
 	rm -f jobs/*.out
 
 format:
