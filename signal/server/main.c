@@ -109,14 +109,12 @@ void remove_session(int session_id) {
  */
 int insert_request(struct Request* request) {
   // Lock the buffer mutex for thread safety
-  if (pthread_mutex_lock(&buffer_mutex) != 0) {
-    print_error("Error locking mutex");
-  }
 
   // Wait if the buffer is full
   while (count == MAX_SESSION_COUNT) {
-    pthread_cond_wait(&not_full_cond, &buffer_mutex);
+    printf("Waiting...\n");
   }
+
 
   int session_id = session_counter;
 
@@ -130,11 +128,6 @@ int insert_request(struct Request* request) {
 
   // Signal that the buffer is not empty
   pthread_cond_signal(&not_empty_cond);
-
-  // Unlock the buffer mutex
-  if (pthread_mutex_unlock(&buffer_mutex) != 0) {
-    print_error("Error unlocking mutex");
-  }
 
   return session_id;
 }
@@ -592,9 +585,6 @@ int main(int argc, char* argv[]) {
   // Copy the server pipe path to the main thread arguments
   snprintf(main_args.server_pipe_path, MAX_PATH, "%s", server_pipe_path);
   //pthread_t host_thread;
-
-
-
 
   // Create worker threads
   pthread_t worker_threads[MAX_SESSION_COUNT];
