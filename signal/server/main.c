@@ -195,7 +195,7 @@ void* handle_client(void* args) {
     //printf("Operation code: %d\n", op_code);
     switch (op_code) {
       case 2:  // ems_quit
-
+        printf("Handling ems_quit in session %d\n", thread_args->session_id);
         // Read the session ID from the request pipe
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
           perror("Error reading from named pipe");
@@ -429,7 +429,7 @@ void* worker_function() {
 int print_events() {
   // Get event_list
     struct EventList* events = get_event_list();
-    print_str(STDOUT_FILENO, "ENTROU NO PRINT_EVENTS\n");
+    printf("ENTROU NO PRINT_EVENTS\n");
 
     struct ListNode* to = events->tail;
     struct ListNode* current = events->head;
@@ -469,6 +469,7 @@ void* extract_requests(void* args) {
   while (1) {
   
     int local_print_flag = print_flag;
+    printf("Local print flag: %d\n", local_print_flag);
 
     // Check if the print_flag is set
     if (local_print_flag == 1) {
@@ -592,6 +593,7 @@ int main(int argc, char* argv[]) {
 
   // Set the SIGUSR1 signal handler
   signal(SIGUSR1, sigusr1_handler);
+  //pthread_kill(, SIGUSR1);
   printf("SIGUSR1 handler set\n");
 
   // Create worker threads

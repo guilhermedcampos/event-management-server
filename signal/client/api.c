@@ -404,11 +404,16 @@ int ems_show(int out_fd, int event_id) {
         printf("Failed to read seat.\n");
         return 1;
       }
-      char seat_str[64];
-      snprintf(seat_str, 64, "%u ", seat);
-      if (my_write(out_fd, seat_str, strlen(seat_str)) == -1) {
-        printf("Failed to write seat_str.\n");
+      if (print_uint(out_fd, seat)) {
+        printf("Failed to print seat.\n");
         return 1;
+      }
+
+      if (j < num_cols) {
+        if (print_str(out_fd, " ")) {
+          perror("Error writing to file descriptor");
+          return 1;
+        }
       }
     }
 
@@ -482,7 +487,7 @@ int ems_list_events(int out_fd) {
   }
 
   if (result == 2) {
-    my_write(out_fd, "No events\n", strlen("No events\n"));
+    print_str(out_fd, "No events\n");
     return 1;
   }
 
@@ -499,12 +504,10 @@ int ems_list_events(int out_fd) {
       printf("Failed to read event_id.\n");
       return 1;
     }
-    char id_str[64];
-    if (my_write(out_fd, "Event: ", strlen("Event: ")) == -1) {
+    if (print_str(out_fd, "Event: ") == -1) {
       return 1;
     }
-    snprintf(id_str, 64, "%u", event_id);  // Removed '\n' from here
-    if (my_write(out_fd, id_str, strlen(id_str)) == -1) {
+    if (print_uint(out_fd, event_id) == -1) {
       return 1;
     }
     // Add a newline after each event, except for the last one
