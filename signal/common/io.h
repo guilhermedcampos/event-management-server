@@ -4,6 +4,10 @@
 #include <stddef.h>
 #include <sys/types.h>
 
+/// Prints an error message to stderr.
+/// @param msg The message to print.
+void print_error(const char* msg);
+
 /// Writes data from a buffer to a file descriptor.
 /// @param fd The file descriptor to write to.
 /// @param buffer The buffer to write from.

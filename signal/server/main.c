@@ -60,7 +60,6 @@ int print_flag = 0;
 void sigusr1_handler(int signum ) {
   // Set the flag to print event info
   if (signum == SIGUSR1) {
-    printf("H: SIGUSR1 received\n");
     print_flag = 1; 
     printf("H: print_flag set with %d\n", print_flag);
   }
@@ -98,7 +97,7 @@ void remove_session(int session_id) {
   pthread_cond_signal(&not_full_cond);
 
   if (pthread_mutex_unlock(&buffer_mutex) != 0) {
-    perror("Error unlocking mutex");
+    print_error("Error unlocking mutex");
   }
 }
 
@@ -111,7 +110,7 @@ void remove_session(int session_id) {
 int insert_request(struct Request* request) {
   // Lock the buffer mutex for thread safety
   if (pthread_mutex_lock(&buffer_mutex) != 0) {
-    perror("Error locking mutex");
+    print_error("Error locking mutex");
   }
 
   // Wait if the buffer is full
@@ -134,7 +133,7 @@ int insert_request(struct Request* request) {
 
   // Unlock the buffer mutex
   if (pthread_mutex_unlock(&buffer_mutex) != 0) {
-    perror("Error unlocking mutex");
+    print_error("Error unlocking mutex");
   }
 
   return session_id;
@@ -147,7 +146,7 @@ int insert_request(struct Request* request) {
  */
 void retrieve_request(struct Request* request) {
   if (pthread_mutex_lock(&buffer_mutex) != 0) {
-    perror("Error locking mutex");
+    print_error("Error locking mutex");
   }
 
   // Retrieve the request from the buffer
@@ -156,7 +155,7 @@ void retrieve_request(struct Request* request) {
   count--;
 
   if (pthread_mutex_unlock(&buffer_mutex) != 0) {
-    perror("Error unlocking mutex");
+    print_error("Error unlocking mutex");
   }
 }
 
@@ -171,27 +170,27 @@ void* handle_client(void* args) {
   // Open the server pipe for writing
   int server_pipe = open(thread_args->server_pipe_path, O_WRONLY);
   if (server_pipe == -1) {
-    perror("Error opening server pipe");
+    print_error("Error opening server pipe");
     pthread_exit(NULL);
   }
 
   // Open the request pipe for reading
   int request_pipe = open(thread_args->request_pipe_path, O_RDONLY);
   if (request_pipe == -1) {
-    perror("Error opening request pipe");
+    print_error("Error opening request pipe");
     pthread_exit(NULL);
   }
 
   // Open the response pipe for writing
   int response_pipe = open(thread_args->response_pipe_path, O_WRONLY);
   if (response_pipe == -1) {
-    perror("Error opening response pipe");
+    print_error("Error opening response pipe");
     pthread_exit(NULL);
   }
 
   // Send the session id to the response pipe
   if (my_write(response_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-    perror("Error writing to named pipe");
+    print_error("Error writing to named pipe");
     pthread_exit(NULL);
   }
 
@@ -211,33 +210,33 @@ void* handle_client(void* args) {
         printf("Handling ems_quit in session %d\n", thread_args->session_id);
         // Read the session ID from the request pipe
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-          perror("1Error reading from named pipe");
+          print_error("1Error reading from named pipe");
           result = 1;
         }
 
         // Close the pipes
         if (close(request_pipe) == -1) {
-          perror("Error closing request pipe");
+          print_error("Error closing request pipe");
           result = 1;
         }
 
         if (close(response_pipe) == -1) {
-          perror("Error closing response pipe");
+          print_error("Error closing response pipe");
           result = 1;
         }
 
         if (close(server_pipe) == -1) {
-          perror("Error closing server pipe");
+          print_error("Error closing server pipe");
           result = 1;
         }
 
         // Remove the session from the buffer
         if (pthread_mutex_lock(&sessions_mutex) != 0) {
-          perror("Error locking mutex");
+          print_error("Error locking mutex");
         }
         remove_session(thread_args->session_id);
         if (pthread_mutex_unlock(&sessions_mutex) != 0) {
-          perror("Error unlocking mutex");
+          print_error("Error unlocking mutex");
         }
 
         // Free the memory allocated for the thread arguments
@@ -253,37 +252,37 @@ void* handle_client(void* args) {
         //printf("Handling ems_create in session %d\n", thread_args->session_id);
 
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-          perror("2Error reading from named pipe");
+          print_error("2Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
-            perror("Error writing to named pipe");
+            print_error("Error writing to named pipe");
           }
           break;
         }
 
         if (my_read(request_pipe, &event_id, sizeof(unsigned int)) == -1) {
-          perror("3Error reading from named pipe");
+          print_error("3Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
-            perror("Error writing to named pipe");
+            print_error("Error writing to named pipe");
           }
           break;
         }
 
         if (my_read(request_pipe, &num_rows, sizeof(size_t)) == -1) {
-          perror("4Error reading from named pipe");
+          print_error("4Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
-            perror("Error writing to named pipe");
+            print_error("Error writing to named pipe");
           }
           break;
         }
 
         if (my_read(request_pipe, &num_cols, sizeof(size_t)) == -1) {
-          perror("5Error reading from named pipe");
+          print_error("5Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
-            perror("Error writing to named pipe");
+            print_error("Error writing to named pipe");
           }
           break;
         }
@@ -291,7 +290,7 @@ void* handle_client(void* args) {
         result = ems_create(event_id, num_rows, num_cols);
 
         if (my_write(response_pipe, &result, sizeof(int)) == -1) {
-          perror("Error writing to named pipe");
+          print_error("Error writing to named pipe");
           break;
         }
         break;
@@ -301,46 +300,46 @@ void* handle_client(void* args) {
         //printf("Handling ems_reserve in session %d\n", thread_args->session_id);
 
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-          perror("6Error reading from named pipe");
+          print_error("6Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
-            perror("Error writing to named pipe");
+            print_error("Error writing to named pipe");
           }
           break;
         }
 
         if (my_read(request_pipe, &event_id, sizeof(unsigned int)) == -1) {
-          perror("7Error reading from named pipe");
+          print_error("7Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
-            perror("Error writing to named pipe");
+            print_error("Error writing to named pipe");
           }
           break;
         }
 
         if (my_read(request_pipe, &num_seats, sizeof(size_t)) == -1) {
-          perror("8Error reading from named pipe");
+          print_error("8Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
-            perror("Error writing to named pipe");
+            print_error("Error writing to named pipe");
           }
           break;
         }
 
         if (my_read(request_pipe, xs, num_seats * sizeof(size_t)) == -1) {
-          perror("9Error reading from named pipe");
+          print_error("9Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
-            perror("Error writing to named pipe");
+            print_error("Error writing to named pipe");
           }
           break;
         }
 
         if (my_read(request_pipe, ys, num_seats * sizeof(size_t)) == -1) {
-          perror("10Error reading from named pipe");
+          print_error("10Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
-            perror("Error writing to named pipe");
+            print_error("Error writing to named pipe");
           }
           break;
         }
@@ -348,7 +347,7 @@ void* handle_client(void* args) {
         result = ems_reserve(event_id, num_seats, xs, ys);
 
         if (my_write(response_pipe, &result, sizeof(int)) == -1) {
-          perror("Error writing to named pipe");
+          print_error("Error writing to named pipe");
           break;
         }
         break;
@@ -358,19 +357,19 @@ void* handle_client(void* args) {
         //printf("Handling ems_show in session %d\n", thread_args->session_id);
 
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-          perror("11Error reading from named pipe");
+          print_error("11Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
-            perror("Error writing to named pipe");
+            print_error("Error writing to named pipe");
           }
           break;
         }
 
         if (my_read(request_pipe, &event_id, sizeof(unsigned int)) == -1) {
-          perror("12Error reading from named pipe");
+          print_error("12Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
-            perror("Error writing to named pipe");
+            print_error("Error writing to named pipe");
             break;
           }
           break;
@@ -386,10 +385,10 @@ void* handle_client(void* args) {
         //printf("Handling ems_list_events in session %d\n", thread_args->session_id);
 
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-          perror("13Error reading from named pipe");
+          print_error("13Error reading from named pipe");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
-            perror("Error writing to named pipe");
+            print_error("Error writing to named pipe");
           }
           break;
         }
@@ -482,14 +481,14 @@ void extract_requests(void* args) {
 
   while (1) {
   
-    printf("Print flag: %d\n", print_flag);
+    print_error("Print flag\n");
 
     char op_code = 0;
     
     // Read the operation code from the server pipe
     ssize_t res = my_read(server_fd, &op_code, sizeof(char));
     if (res == -1) {
-      perror("Error reading from named pipe");
+      print_error("Error reading from named pipe");
       break;
     }
 
@@ -511,14 +510,14 @@ void extract_requests(void* args) {
 
       // Read the request pipe path from the server pipe
       if (my_read(server_fd, &request_pipe_path, MAX_PATH) == -1) {
-        perror("15Error reading from named pipe");
+        print_error("15Error reading from named pipe");
         break;
       }
 
       // Obtain the second named pipe for the new session
       char response_pipe_path[MAX_PATH];
       if (my_read(server_fd, &response_pipe_path, MAX_PATH) == -1) {
-        perror("16Error reading from named pipe");
+        print_error("16Error reading from named pipe");
         break;
       }
 
@@ -545,7 +544,7 @@ void extract_requests(void* args) {
 int main(int argc, char* argv[]) {
   // Check if the required number of command-line arguments is provided
   if (argc < 2 || argc > 3) {
-    fprintf(stderr, "Usage: %s\n <server_pipe_path> [delay]\n", argv[0]);
+    fprintf(stderr, "Usage: %s\n <pipe_path> [delay]\n", argv[0]);
     return 1;
   }
   
@@ -556,7 +555,7 @@ int main(int argc, char* argv[]) {
     unsigned long int delay = strtoul(argv[2], &endptr, 10);
 
     if (*endptr != '\0' || delay > UINT_MAX) {
-      fprintf(stderr, "Invalid delay value or value too large\n");
+      print_error("Invalid delay value or value too large\n");
       return 1;
     }
 
@@ -565,14 +564,14 @@ int main(int argc, char* argv[]) {
 
   // Initialize the EMS
   if (ems_init(state_access_delay_us)) {
-    fprintf(stderr, "Failed to initialize EMS\n");
+    print_error("Failed to initialize EMS\n");
     return 1;
   }
 
   char* server_pipe_path = argv[1];
   // Create a named pipe for reading and writing
   if (mkfifo(server_pipe_path, 0666) == -1) {
-    perror("Error creating named pipe");
+    print_error("Error creating named pipe");
     ems_terminate();
     return 1;
   }
@@ -582,7 +581,7 @@ int main(int argc, char* argv[]) {
   // Open the pipe for reading and writing
   server_fd = open(server_pipe_path, O_RDWR);
   if (server_fd == -1) {
-    perror("Error opening server pipe");
+    print_error("Error opening server pipe");
     ems_terminate();
     return 1;
   }
@@ -602,7 +601,7 @@ int main(int argc, char* argv[]) {
 
   for (int i = 0; i < MAX_SESSION_COUNT; ++i) {
     if (pthread_create(&worker_threads[i], NULL, worker_function, NULL) != 0) {
-      perror("Error creating thread");
+      print_error("Error creating thread");
       return 1;
     }
   }
@@ -615,18 +614,18 @@ int main(int argc, char* argv[]) {
   }
 
   if (close(server_fd) == -1) {
-    perror("Error closing server pipe");
+    print_error("Error closing server pipe");
     ems_terminate();
     return 1;
   }
 
   if (unlink(server_pipe_path) == -1) {
-    perror("Error unlinking server pipe");
+    print_error("Error unlinking server pipe");
     ems_terminate();
     return 1;
   }
   if (unlink(server_pipe_path) == -1) {
-    perror("Error unlinking server pipe");
+    print_error("Error unlinking server pipe");
     ems_terminate();
     return 1;
   }

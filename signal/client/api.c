@@ -41,17 +41,17 @@ int ems_setup(char const *req_pipe_p, char const *resp_pipe_p, char const *serve
 
   // Fill buffer with null bytes
   if (memset(server_pipe_path, '\0', MAX_PATH) == NULL) {
-    printf("Failed to memset server_pipe_path.\n");
+    print_error("Failed to memset server_pipe_path.\n");
     return 1;
   }
 
   if (memset(resp_pipe_path, '\0', MAX_PATH) == NULL) {
-    printf("Failed to memset resp_pipe_path.\n");
+    print_error("Failed to memset resp_pipe_path.\n");
     return 1;
   }
 
   if (memset(req_pipe_path, '\0', MAX_PATH) == NULL) {
-    printf("Failed to memset req_pipe_path.\n");
+    print_error("Failed to memset req_pipe_path.\n");
     return 1;
   }
 
@@ -62,18 +62,18 @@ int ems_setup(char const *req_pipe_p, char const *resp_pipe_p, char const *serve
 
   // Create request and response pipes with permissions read and write
   if (mkfifo(resp_pipe_path, 0666) < 0) {
-    printf("Failed to create response pipe.\n");
+    print_error("Failed to create response pipe.\n");
     return 1;
   }
   if (mkfifo(req_pipe_path, 0666) < 0) {
-    printf("Failed to create request pipe.\n");
+    print_error("Failed to create request pipe.\n");
     return 1;
   }
 
   // Connect to server pipe
   int server_fd = open(server_pipe_path, O_WRONLY);
   if (server_fd < 0) {
-    printf("Failed to connect to server pipe.\n");
+    print_error("Failed to connect to server pipe.\n");
     return 1;
   }
 
@@ -81,33 +81,33 @@ int ems_setup(char const *req_pipe_p, char const *resp_pipe_p, char const *serve
   char op_code = 1;  // op_code for session start
 
   if (my_write(server_fd, &op_code, sizeof(char)) == -1) {
-    printf("Failed to write op_code.\n");
+    print_error("Failed to write op_code.\n");
     return 1;
   }
   if (my_write(server_fd, req_pipe_path, MAX_PATH) == -1) {
-    printf("Failed to write req_pipe_path.\n");
+    print_error("Failed to write req_pipe_path.\n");
     return 1;
   }
   if (my_write(server_fd, resp_pipe_path, MAX_PATH) == -1) {
-    printf("Failed to write resp_pipe_path.\n");
+    print_error("Failed to write resp_pipe_path.\n");
     return 1;
   }
 
   int req_fd = open(req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
-    printf("Failed to open request pipe.\n");
+    print_error("Failed to open request pipe.\n");
     return 1;
   }
 
   int resp_fd = open(resp_pipe_path, O_RDONLY);
   if (resp_fd < 0) {
-    printf("Failed to open response pipe.\n");
+    print_error("Failed to open response pipe.\n");
     return 1;
   }
 
   // Read session_id from server
   if (my_read(resp_fd, &session.session_id, sizeof(int)) == -1) {
-    printf("Failed to read session_id.\n");
+    print_error("Failed to read session_id.\n");
     return 1;
   }
 
@@ -117,11 +117,11 @@ int ems_setup(char const *req_pipe_p, char const *resp_pipe_p, char const *serve
 
   // Close named pipes
   if (close(server_fd) < 0) {
-    printf("Failed to close server pipe.\n");
+    print_error("Failed to close server pipe.\n");
     return 1;
   }
   if (close(resp_fd) < 0) {
-    printf("Failed to close response pipe.\n");
+    print_error("Failed to close response pipe.\n");
     return 1;
   }
 
@@ -146,18 +146,18 @@ int ems_quit() {
   char op_code = 2;  // op_code for session end
 
   if (my_write(req_fd, &op_code, sizeof(char)) == -1) {
-    printf("Failed to write op_code.\n");
+    print_error("Failed to write op_code.\n");
     return 1;
   }
 
   if (my_write(req_fd, &session.session_id, sizeof(int)) == -1) {
-    printf("Failed to write session_id.\n");
+    print_error("Failed to write session_id.\n");
     return 1;
   }
 
   // Close named pipes
   if (close(req_fd) < 0) {
-    printf("Failed to close request pipe.\n");
+    print_error("Failed to close request pipe.\n");
     return 1;
   }
 
@@ -165,7 +165,7 @@ int ems_quit() {
   int resp_fd = open(session.resp_pipe_path, O_RDONLY);
   if (resp_fd >= 0) {
     if (close(resp_fd) < 0) {
-      printf("Failed to close response pipe.\n");
+      print_error("Failed to close response pipe.\n");
       return 1;
     }
   }
@@ -197,27 +197,27 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   char op_code = 3;  // op_code for create
 
   if (my_write(req_fd, &op_code, sizeof(char)) == -1) {
-    printf("Failed to write op_code.\n");
+    print_error("Failed to write op_code.\n");
     return 1;
   }
 
   if (my_write(req_fd, &session.session_id, sizeof(int)) == -1) {
-    printf("Failed to write session_id.\n");
+    print_error("Failed to write session_id.\n");
     return 1;
   }
 
   if (my_write(req_fd, &event_id, sizeof(unsigned int)) == -1) {
-    printf("Failed to write event_id.\n");
+    print_error("Failed to write event_id.\n");
     return 1;
   }
 
   if (my_write(req_fd, &num_rows, sizeof(size_t)) == -1) {
-    printf("Failed to write num_rows.\n");
+    print_error("Failed to write num_rows.\n");
     return 1;
   }
 
   if (my_write(req_fd, &num_cols, sizeof(size_t)) == -1) {
-    printf("Failed to write num_cols.\n");
+    print_error("Failed to write num_cols.\n");
     return 1;
   }
 
@@ -230,7 +230,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   int result;
 
   if (my_read(resp_fd, &result, sizeof(int)) == -1) {
-    printf("Failed to read result.\n");
+    print_error("Failed to read result.\n");
     return 1;
   }
 
@@ -241,11 +241,11 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
 
   // Close named pipes
   if (close(req_fd) < 0) {
-    printf("Failed to close request pipe.\n");
+    print_error("Failed to close request pipe.\n");
     return 1;
   }
   if (close(resp_fd) < 0) {
-    printf("Failed to close response pipe.\n");
+    print_error("Failed to close response pipe.\n");
     return 1;
   }
 
@@ -272,32 +272,32 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
   // Send reserve request to server and seat information
   char op_code = 4;
   if (my_write(req_fd, &op_code, sizeof(char)) == -1) {
-    printf("Failed to write op_code.\n");
+    print_error("Failed to write op_code.\n");
     return 1;
   }
 
   if (my_write(req_fd, &session.session_id, sizeof(int)) == -1) {
-    printf("Failed to write session_id.\n");
+    print_error("Failed to write session_id.\n");
     return 1;
   }
 
   if (my_write(req_fd, &event_id, sizeof(unsigned int)) == -1) {
-    printf("Failed to write event_id.\n");
+    print_error("Failed to write event_id.\n");
     return 1;
   }
 
   if (my_write(req_fd, &num_seats, sizeof(size_t)) == -1) {
-    printf("Failed to write num_seats.\n");
+    print_error("Failed to write num_seats.\n");
     return 1;
   }
 
   if (my_write(req_fd, xs, num_seats * sizeof(size_t)) == -1) {
-    printf("Failed to write xs.\n");
+    print_error("Failed to write xs.\n");
     return 1;
   }
 
   if (my_write(req_fd, ys, num_seats * sizeof(size_t)) == -1) {
-    printf("Failed to write ys.\n");
+    print_error("Failed to write ys.\n");
     return 1;
   }
 
@@ -310,7 +310,7 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
   int result;
 
   if (my_read(resp_fd, &result, sizeof(int)) == -1) {
-    printf("Failed to read result.\n");
+    print_error("Failed to read result.\n");
     return 1;
   }
 
@@ -321,11 +321,11 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
 
   // Close named pipes
   if (close(req_fd) < 0) {
-    printf("Failed to close request pipe.\n");
+    print_error("Failed to close request pipe.\n");
     return 1;
   }
   if (close(resp_fd) < 0) {
-    printf("Failed to close response pipe.\n");
+    print_error("Failed to close response pipe.\n");
     return 1;
   }
 
@@ -352,17 +352,17 @@ int ems_show(int out_fd, int event_id) {
   char op_code = 5;  // op_code for show
 
   if (my_write(req_fd, &op_code, sizeof(char)) == -1) {
-    printf("Failed to write op_code.\n");
+    print_error("Failed to write op_code.\n");
     return 1;
   }
 
   if (my_write(req_fd, &session.session_id, sizeof(int)) == -1) {
-    printf("Failed to write session_id.\n");
+    print_error("Failed to write session_id.\n");
     return 1;
   }
 
   if (my_write(req_fd, &event_id, sizeof(unsigned int)) == -1) {
-    printf("Failed to write event_id.\n");
+    print_error("Failed to write event_id.\n");
     return 1;
   }
 
@@ -375,7 +375,7 @@ int ems_show(int out_fd, int event_id) {
   int result;
 
   if (my_read(resp_fd, &result, sizeof(int)) == -1) {
-    printf("Failed to read result.\n");
+    print_error("Failed to read result.\n");
     return 1;
   }
 
@@ -388,12 +388,12 @@ int ems_show(int out_fd, int event_id) {
   size_t num_cols;
 
   if (my_read(resp_fd, &num_rows, sizeof(size_t)) == -1) {
-    printf("Failed to read num_rows.\n");
+    print_error("Failed to read num_rows.\n");
     return 1;
   }
 
   if (my_read(resp_fd, &num_cols, sizeof(size_t)) == -1) {
-    printf("Failed to read num_cols.\n");
+    print_error("Failed to read num_cols.\n");
     return 1;
   }
 
@@ -401,11 +401,11 @@ int ems_show(int out_fd, int event_id) {
     for (size_t j = 0; j < num_cols; j++) {
       unsigned int seat;
       if (my_read(resp_fd, &seat, sizeof(unsigned int)) == -1) {
-        printf("Failed to read seat.\n");
+        print_error("Failed to read seat.\n");
         return 1;
       }
       if (print_uint(out_fd, seat)) {
-        printf("Failed to print seat.\n");
+        print_error("Failed to print seat.\n");
         return 1;
       }
 
@@ -420,18 +420,18 @@ int ems_show(int out_fd, int event_id) {
     // Add a newline after each row
     char newline = '\n';
     if (my_write(out_fd, &newline, 1) == -1) {
-      printf("Failed to write newline.\n");
+      print_error("Failed to write newline.\n");
       return 1;
     }
   }
 
   // Close named pipes
   if (close(req_fd) < 0) {
-    printf("Failed to close request pipe.\n");
+    print_error("Failed to close request pipe.\n");
     return 1;
   }
   if (close(resp_fd) < 0) {
-    printf("Failed to close response pipe.\n");
+    print_error("Failed to close response pipe.\n");
     return 1;
   }
 
@@ -450,7 +450,7 @@ int ems_list_events(int out_fd) {
   // Open request pipe
   int req_fd = open(session.req_pipe_path, O_WRONLY);
   if (req_fd < 0) {
-    printf("Failed to open request pipe.\n");
+    print_error("Failed to open request pipe.\n");
     return 1;
   }
 
@@ -458,26 +458,26 @@ int ems_list_events(int out_fd) {
   char op_code = 6;  // op_code for list events
 
   if (my_write(req_fd, &op_code, sizeof(char)) == -1) {
-    printf("Failed to write op_code.\n");
+    print_error("Failed to write op_code.\n");
     return 1;
   }
 
   if (my_write(req_fd, &session.session_id, sizeof(int)) == -1) {
-    printf("Failed to write session_id.\n");
+    print_error("Failed to write session_id.\n");
     return 1;
   }
 
   // Handle server response
   int resp_fd = open(session.resp_pipe_path, O_RDONLY);
   if (resp_fd < 0) {
-    printf("Failed to open response pipe.\n");
+    print_error("Failed to open response pipe.\n");
     return 1;
   }
 
   int result;
 
   if (my_read(resp_fd, &result, sizeof(int)) == -1) {
-    printf("Failed to read result.\n");
+    print_error("Failed to read result.\n");
     return 1;
   }
 
@@ -494,14 +494,14 @@ int ems_list_events(int out_fd) {
   // Read events from server and write them to out_fd
   size_t num_events;
   if (my_read(resp_fd, &num_events, sizeof(size_t)) == -1) {
-    printf("Failed to read num_events.\n");
+    print_error("Failed to read num_events.\n");
     return 1;
   }
 
   for (size_t i = 0; i < num_events; i++) {
     unsigned int event_id;
     if (my_read(resp_fd, &event_id, sizeof(unsigned int)) == -1) {
-      printf("Failed to read event_id.\n");
+      print_error("Failed to read event_id.\n");
       return 1;
     }
     if (print_str(out_fd, "Event: ") == -1) {
@@ -514,7 +514,7 @@ int ems_list_events(int out_fd) {
     if (i < num_events - 1) {
       char newline = '\n';
       if (my_write(out_fd, &newline, 1) == -1) {
-        printf("Failed to write newline.\n");
+        print_error("Failed to write newline.\n");
         return 1;
       }
     }
@@ -523,17 +523,17 @@ int ems_list_events(int out_fd) {
   // Add a newline after listing all events
   char newline = '\n';
   if (my_write(out_fd, &newline, 1) == -1) {
-    printf("Failed to write newline.\n");
+    print_error("Failed to write newline.\n");
     return 1;
   }
 
   // Close named pipes
   if (close(req_fd) < 0) {
-    printf("Failed to close request pipe.\n");
+    print_error("Failed to close request pipe.\n");
     return 1;
   }
   if (close(resp_fd) < 0) {
-    printf("Failed to close response pipe.\n");
+    print_error("Failed to close response pipe.\n");
     return 1;
   }
 

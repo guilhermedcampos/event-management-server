@@ -8,24 +8,29 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
+#include <pthread.h>
+
+pthread_mutex_t print_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void print_error(const char* msg) {
+    pthread_mutex_lock(&print_mutex);
+    fprintf(stderr, "%s", msg);
+    pthread_mutex_unlock(&print_mutex);
+}
 
 ssize_t my_read(int fd, void* buffer, size_t size) {
     ssize_t done = 0;
     ssize_t new_size = (ssize_t) size;
     while (done < new_size) {
-      printf("Passou0\n");
-      printf("Passou1\n");
       ssize_t bytes_read = read(fd, (char*)buffer + done, (size_t)(new_size - done));
       if (bytes_read < 0) {
           if (errno == EINTR) {
               return -2;
           } else {
-              fprintf(stderr, "Read error: %s\n", strerror(errno));
               return -1;
           }
       }
-      printf("Passou2\n");
-
+      
       // if we read 0 bytes, we're done
       if (bytes_read == 0)
           break;
@@ -42,7 +47,6 @@ ssize_t my_write(int fd, const void* buffer, size_t size) {
     while (new_size > 0) {
         ssize_t bytes_written = write(fd, (const char*)buffer + done, (size_t)new_size);
         if (bytes_written < 0) {
-            fprintf(stderr, "write error: %s\n", strerror(errno));
             return -1;
         }
 
