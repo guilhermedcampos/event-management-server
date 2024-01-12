@@ -107,14 +107,18 @@ void remove_session(int session_id) {
  * @param request The pointer to the Request structure containing the request details.
  * @return The session ID assigned to the inserted request.
  */
-int insert_request(struct Request* request) {
+void *insert_request(void *req) {
+  struct Request* request = (struct Request*)req;
+
   // Lock the buffer mutex for thread safety
+  if (pthread_mutex_lock(&buffer_mutex) != 0) {
+    perror("Error locking mutex");
+  }
 
   // Wait if the buffer is full
   while (count == MAX_SESSION_COUNT) {
-    printf("Waiting...\n");
+    pthread_cond_wait(&not_full_cond, &buffer_mutex);
   }
-
 
   int session_id = session_counter;
 
@@ -129,7 +133,12 @@ int insert_request(struct Request* request) {
   // Signal that the buffer is not empty
   pthread_cond_signal(&not_empty_cond);
 
-  return session_id;
+  // Unlock the buffer mutex
+  if (pthread_mutex_unlock(&buffer_mutex) != 0) {
+    perror("Error unlocking mutex");
+  }
+
+  return NULL;
 }
 
 /**
@@ -471,6 +480,7 @@ int print_events() {
  */
 void extract_requests(void* args) {
   struct MainThreadArgs* main_args = (struct MainThreadArgs*)args;  // Cast the arguments to the correct type
+  pthread_t host_thread;
 
   while (1) {
   
@@ -520,8 +530,10 @@ void extract_requests(void* args) {
       snprintf(request.response_pipe_path, MAX_PATH, "%s", response_pipe_path);
       snprintf(request.server_pipe_path, MAX_PATH, "%s", main_args->server_pipe_path);
 
-      // Insert the request into the requests array
-      insert_request(&request);
+      // Insert the request into the requests array by creating an auxiliar thread
+      pthread_create(&host_thread, NULL, insert_request, (void*)&request);
+
+      pthread_join(host_thread, NULL);
       printf("H: Request inserted\n");
     }
   }
