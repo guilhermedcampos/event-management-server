@@ -35,10 +35,6 @@ int ems_setup(char const *req_pipe_p, char const *resp_pipe_p, char const *serve
   char req_pipe_path[MAX_PATH];
   char server_pipe_path[MAX_PATH];
 
-  printf("req_pipe_p: %s\n", req_pipe_p);
-  printf("resp_pipe_p: %s\n", resp_pipe_p);
-  printf("server_pipe_p: %s\n", server_pipe_p);
-
   // Fill buffer with null bytes
   if (memset(server_pipe_path, '\0', MAX_PATH) == NULL) {
     print_error("Failed to memset server_pipe_path.\n");
@@ -235,7 +231,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   }
 
   if (result == 1) {
-    perror("Server couldn't create.");
+    print_error("Server couldn't create.");
     return 1;
   }
 
@@ -315,7 +311,7 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys)
   }
 
   if (result == 1) {
-    perror("Server couldn't reserve.");
+    print_error("Server couldn't reserve.");
     return 1;
   }
 
@@ -380,7 +376,7 @@ int ems_show(int out_fd, int event_id) {
   }
 
   if (result == 1) {
-    perror("Server couldn't show.");
+    print_error("Server couldn't show.");
     return 1;
   }
   // Read seat layout from server and write it to out_fd
@@ -411,7 +407,7 @@ int ems_show(int out_fd, int event_id) {
 
       if (j < num_cols) {
         if (print_str(out_fd, " ")) {
-          perror("Error writing to file descriptor");
+          print_error("Error writing to file descriptor");
           return 1;
         }
       }
@@ -482,7 +478,7 @@ int ems_list_events(int out_fd) {
   }
 
   if (result == 1) {
-    perror("Server couldn't list events.");
+    print_error("Server couldn't list events.");
     return 1;
   }
 

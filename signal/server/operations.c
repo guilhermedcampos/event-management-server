@@ -39,7 +39,7 @@ static struct Event* get_event_with_delay(unsigned int event_id, struct ListNode
 static size_t seat_index(struct Event* event, size_t row, size_t col) { return (row - 1) * event->cols + col - 1; }
 
 /**
- * Initializes the Event Management System (EMS) state.
+ * @brief Initializes the Event Management System (EMS) state.
  *
  * This function must be called before using any other EMS functions.
  *
@@ -48,7 +48,7 @@ static size_t seat_index(struct Event* event, size_t row, size_t col) { return (
  */
 int ems_init(unsigned int delay_us) {
   if (event_list != NULL) {
-    print_error("EMS state has already been initialized\n");
+    print_error("EMS state has already been initialized.\n");
     return 1;
   }
 
@@ -68,19 +68,19 @@ int ems_init(unsigned int delay_us) {
  */
 int ems_terminate() {
   if (event_list == NULL) {
-    print_error("EMS state must be initialized\n");
+    print_error("EMS state must be initialized.\n");
     return 1;
   }
 
   if (pthread_rwlock_wrlock(&event_list->rwl) != 0) {
-    print_error("Error locking list rwl\n");
+    print_error("Error locking list rwl.\n");
     return 1;
   }
 
   free_list(event_list);
 
   if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-    print_error("Error unlocking list rwl\n");
+    print_error("Error unlocking list rwl.\n");
     return 1;
   }
   return 0;
@@ -98,19 +98,19 @@ struct EventList* get_event_list() { return event_list; }
  */
 int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   if (event_list == NULL) {
-    print_error("EMS state must be initialized\n");
+    print_error("EMS state must be initialized.\n");
     return 1;
   }
 
   if (pthread_rwlock_wrlock(&event_list->rwl) != 0) {
-    print_error("Error locking list rwl\n");
+    print_error("Error locking list rwl.\n");
     return 1;
   }
 
   if (get_event_with_delay(event_id, event_list->head, event_list->tail) != NULL) {
     print_error("Event already exists\n");
     if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-      print_error("Error unlocking list rwl\n");
+      print_error("Error unlocking list rwl.\n");
     }
     return 1;
   }
@@ -118,9 +118,9 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   struct Event* event = malloc(sizeof(struct Event));
 
   if (event == NULL) {
-    print_error("Error allocating memory for event\n");
+    print_error("Error allocating memory for event.\n");
     if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-      print_error( "Error unlocking list rwl\n");
+      print_error( "Error unlocking list rwl.\n");
     }
     return 1;
   }
@@ -132,25 +132,25 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
 
   if (pthread_mutex_init(&event->mutex, NULL) != 0) {
     if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-      print_error( "Error unlocking list rwl\n");
+      print_error( "Error unlocking list rwl.\n");
     }
     free(event);
     return 1;
   }
   event->data = calloc(num_rows * num_cols, sizeof(unsigned int));
   if (event->data == NULL) {
-    print_error( "Error allocating memory for event data\n");
+    print_error( "Error allocating memory for event data.\n");
     if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-      print_error( "Error unlocking list rwl\n");
+      print_error( "Error unlocking list rwl.\n");
     }
     free(event);
     return 1;
   }
 
   if (append_to_list(event_list, event) != 0) {
-    print_error( "Error appending event to list\n");
+    print_error( "Error appending event to list.\n");
     if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-      print_error( "Error unlocking list rwl\n");
+      print_error( "Error unlocking list rwl.\n");
     }
     free(event->data);
     free(event);
@@ -158,9 +158,8 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   }
 
   if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-    print_error( "Error unlocking list rwl\n");
+    print_error( "Error unlocking list rwl.\n");
   }
-  printf("Created event\n");
   return 0;
 }
 
@@ -175,29 +174,29 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
  */
 int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys) {
   if (event_list == NULL) {
-    print_error( "EMS state must be initialized\n");
+    print_error( "EMS state must be initialized.\n");
     return 1;
   }
 
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
-    print_error( "Error locking list rwl\n");
+    print_error( "Error locking list rwl.\n");
     return 1;
   }
 
   struct Event* event = get_event_with_delay(event_id, event_list->head, event_list->tail);
 
   if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-    print_error( "Error unlocking list rwl\n");
+    print_error( "Error unlocking list rwl.\n");
     return 1;
   }
 
   if (event == NULL) {
-    print_error( "Event not found\n");
+    print_error( "Event not found.\n");
     return 1;
   }
 
   if (pthread_mutex_lock(&event->mutex) != 0) {
-    print_error("Error locking mutex\n");
+    print_error("Error locking mutex.\n");
     return 1;
   }
 
@@ -205,7 +204,7 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
     if (xs[i] <= 0 || xs[i] > event->rows || ys[i] <= 0 || ys[i] > event->cols) {
       print_error("Seat out of bounds\n");
       if (pthread_mutex_unlock(&event->mutex) != 0) {
-        print_error("Error unlocking mutex\n");
+        print_error("Error unlocking mutex.\n");
       }
 
       return 1;
@@ -219,9 +218,9 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
       }
 
       if (event->data[i] != 0) {
-        print_error("Seat already reserved\n");
+        print_error("Seat already reserved.\n");
         if (pthread_mutex_unlock(&event->mutex) != 0) {
-          print_error("Error unlocking mutex\n");
+          print_error("Error unlocking mutex.\n");
         }
         return 1;
       }
@@ -237,7 +236,7 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
   }
 
   if (pthread_mutex_unlock(&event->mutex) != 0) {
-    print_error("Error unlocking mutex\n");
+    print_error("Error unlocking mutex.\n");
   }
   return 0;
 }
@@ -254,18 +253,17 @@ int ems_show(int response_fd, unsigned int event_id) {
   int result = 1;
 
   if (event_list == NULL) {
-    print_error("EMS state must be initialized\n");
+    print_error("EMS state must be initialized.\n");
     if (my_write(response_fd, &result, sizeof(int)) == -1) {
-      print_error("Error writing to fd\n");
+      print_error("Error writing to fd.\n");
     }
     return 1;
   }
 
-  printf("Locking event list rwl\n");
 
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
     if (my_write(response_fd, &result, sizeof(int)) == -1) {
-      print_error("Error writing to fd\n");
+      print_error("Error writing to fd.\n");
     }
     return 1;
   }
@@ -273,21 +271,21 @@ int ems_show(int response_fd, unsigned int event_id) {
   struct Event* event = get_event_with_delay(event_id, event_list->head, event_list->tail);
 
   if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-    print_error("Error unlocking list rwl\n");
+    print_error("Error unlocking list rwl.\n");
   }
 
   if (event == NULL) {
-    print_error("Event not found\n");
+    print_error("Event not found.\n");
     if (my_write(response_fd, &result, sizeof(int)) == -1) {
-      print_error("Error writing to fd\n");
+      print_error("Error writing to fd.\n");
     }
     return 1;
   }
 
   if (pthread_mutex_lock(&event->mutex) != 0) {
-    print_error("Error locking mutex\n");
+    print_error("Error locking mutex.\n");
     if (my_write(response_fd, &result, sizeof(int)) == -1) {
-      print_error("Error writing to fd\n");
+      print_error("Error writing to fd.\n");
     }
     return 1;
   }
@@ -297,23 +295,23 @@ int ems_show(int response_fd, unsigned int event_id) {
 
   // Write the result, rows, and cols to the buffer
   if (my_write(response_fd, &result, sizeof(int)) == -1) {
-    print_error("Error writing to fd\n");
+    print_error("Error writing to fd.\n");
     if (pthread_mutex_unlock(&event->mutex) != 0) {
-      print_error("Error unlocking mutex\n");
+      print_error("Error unlocking mutex.\n");
     }
     return 1;
   }
   if (my_write(response_fd, &event->rows, sizeof(size_t)) == -1) {
-    print_error("Error writing to fd\n");
+    print_error("Error writing to fd.\n");
     if (pthread_mutex_unlock(&event->mutex) != 0) {
-      print_error("Error unlocking mutex\n");
+      print_error("Error unlocking mutex.\n");
     }
     return 1;
   }
   if (my_write(response_fd, &event->cols, sizeof(size_t)) == -1) {
-    print_error("Error writing to fd\n");
+    print_error("Error writing to fd.\n");
     if (pthread_mutex_unlock(&event->mutex) != 0) {
-      print_error("Error unlocking mutex\n");
+      print_error("Error unlocking mutex.\n");
     }
     return 1;
   }
@@ -321,19 +319,20 @@ int ems_show(int response_fd, unsigned int event_id) {
   // Write the seat data to the buffer
   for (size_t i = 0; i < event->rows * event->cols; i++) {
     if (my_write(response_fd, &event->data[i], sizeof(unsigned int)) == -1) {
-      print_error("Error writing to fd\n");
+      print_error("Error writing to fd.\n");
       if (pthread_mutex_unlock(&event->mutex) != 0) {
-        print_error("Error unlocking mutex\n");
+        print_error("Error unlocking mutex.\n");
       }
       return 1;
     }
   }
 
   if (pthread_mutex_unlock(&event->mutex) != 0) {
-    print_error("Error unlocking mutex\n");
+    print_error("Error unlocking mutex.\n");
   }
   return 0;
 }
+
 /**
  * Sends information about a specified event to the standard output.
  *
@@ -343,28 +342,28 @@ int ems_show(int response_fd, unsigned int event_id) {
 int ems_show_stdout(unsigned int event_id) {
 
   if (event_list == NULL) {
-    print_error("EMS state must be initialized\n");
+    print_error("EMS state must be initialized.\n");
     return 1;
   }
 
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
-    print_error("Error locking list rwl\n");
+    print_error("Error locking list rwl.\n");
     return 1;
   }
 
   struct Event* event = get_event_with_delay(event_id, event_list->head, event_list->tail);
 
   if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-    print_error("Error unlocking list rwl\n");
+    print_error("Error unlocking list rwl.\n");
   }
 
   if (event == NULL) {
-    print_error("Event not found\n");
+    print_error("Event not found.\n");
     return 1;
   }
 
   if (pthread_mutex_lock(&event->mutex) != 0) {
-    print_error("Error locking mutex\n");
+    print_error("Error locking mutex.\n");
     return 1;
   }
 
@@ -374,14 +373,14 @@ int ems_show_stdout(unsigned int event_id) {
       sprintf(buffer, "%u", event->data[seat_index(event, i, j)]);
 
       if (print_str(STDOUT_FILENO, buffer)) {
-        perror("Error writing to file descriptor");
+        print_error("Error writing to file descriptor.\n");
         pthread_mutex_unlock(&event->mutex);
         return 1;
       }
 
       if (j < event->cols) {
         if (print_str(STDOUT_FILENO, " ")) {
-          perror("Error writing to file descriptor");
+          print_error("Error writing to file descriptor.\n");
           pthread_mutex_unlock(&event->mutex);
           return 1;
         }
@@ -389,7 +388,7 @@ int ems_show_stdout(unsigned int event_id) {
     }
 
     if (print_str(STDOUT_FILENO, "\n")) {
-      perror("Error writing to file descriptor");
+      print_error("Error writing to file descriptor.\n");
       pthread_mutex_unlock(&event->mutex);
       return 1;
     }
@@ -408,19 +407,19 @@ int ems_show_stdout(unsigned int event_id) {
 int ems_list_events(int out_fd) {
   int result = 1;
   if (event_list == NULL) {
-    print_error("EMS state must be initialized\n");
+    print_error("EMS state must be initialized.\n");
 
     if (my_write(out_fd, &result, sizeof(int)) == -1) {
-      print_error("Error writing to fd\n");
+      print_error("Error writing to fd.\n");
     }
     return 1;
   }
 
   if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
-    print_error("Error locking list rwl\n");
+    print_error("Error locking list rwl.\n");
 
     if (my_write(out_fd, &result, sizeof(int)) == -1) {
-      print_error("Error writing to fd\n");
+      print_error("Error writing to fd.\n");
     }
 
     return 1;
@@ -434,7 +433,7 @@ int ems_list_events(int out_fd) {
   if (current == NULL) {
     my_write(out_fd, &result, sizeof(int));
     if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-      print_error("Error unlocking list rwl\n");
+      print_error("Error unlocking list rwl.\n");
     }
     return 1;
   }
@@ -442,16 +441,15 @@ int ems_list_events(int out_fd) {
   result = 0;
   // If there are events, write 0 followed by the number of events followed by the event ids
   if (my_write(out_fd, &result, sizeof(int)) == -1) {
-    print_error("Error writing to fd\n");
+    print_error("Error writing to fd.\n");
     if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-      print_error("Error unlocking list rwl\n");
+      print_error("Error unlocking list rwl.\n");
     }
     return 1;
   }
   size_t num_events = 0;
 
   // Iterate through the list and count the number of events
-
   while (1) {
     num_events++;
     if (current == to) {
@@ -462,9 +460,9 @@ int ems_list_events(int out_fd) {
   }
 
   if (my_write(out_fd, &num_events, sizeof(size_t)) == -1) {
-    print_error("Error writing to fd\n");
+    print_error("Error writing to fd.\n");
     if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-      print_error("Error unlocking list rwl\n");
+      print_error("Error unlocking list rwl.\n");
     }
     return 1;
   }
@@ -473,9 +471,9 @@ int ems_list_events(int out_fd) {
 
   while (1) {
     if (my_write(out_fd, &(current->event)->id, sizeof(unsigned int)) == -1) {
-      print_error("Error writing to fd\n");
+      print_error("Error writing to fd.\n");
       if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-        print_error("Error unlocking list rwl\n");
+        print_error("Error unlocking list rwl.\n");
       }
       return 1;
     }
@@ -488,7 +486,7 @@ int ems_list_events(int out_fd) {
   }
 
   if (pthread_rwlock_unlock(&event_list->rwl) != 0) {
-    print_error("Error unlocking list rwl\n");
+    print_error("Error unlocking list rwl.\n");
   }
   return 0;
 }

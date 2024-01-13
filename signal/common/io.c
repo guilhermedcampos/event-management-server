@@ -12,12 +12,32 @@
 
 pthread_mutex_t print_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+/**
+ * Prints an error message to stderr in a thread-safe manner.
+ *
+ * This function acquires a mutex before printing to prevent race conditions
+ * when multiple threads are printing error messages.
+ *
+ * @param msg The error message to print.
+ */
 void print_error(const char* msg) {
     pthread_mutex_lock(&print_mutex);
     fprintf(stderr, "%s", msg);
     pthread_mutex_unlock(&print_mutex);
 }
 
+/**
+ * Reads data from a file descriptor into a buffer.
+ *
+ * This function attempts to read `size` bytes of data from the file descriptor `fd`
+ * into the buffer `buffer`. If the read operation is interrupted by a signal, it returns -2.
+ * If any other read error occurs, it returns -1.
+ *
+ * @param fd The file descriptor to read from.
+ * @param buffer The buffer to read data into.
+ * @param size The maximum number of bytes to read.
+ * @return The number of bytes read, or -1 or -2 if an error occurred.
+ */
 ssize_t my_read(int fd, void* buffer, size_t size) {
     ssize_t done = 0;
     ssize_t new_size = (ssize_t) size;
@@ -41,6 +61,18 @@ ssize_t my_read(int fd, void* buffer, size_t size) {
     return done;
 }
 
+
+/**
+ * Writes data from a buffer to a file descriptor.
+ *
+ * This function attempts to write `size` bytes of data from the buffer `buffer`
+ * to the file descriptor `fd`. If the write operation is interrupted by a signal, it returns -1.
+ *
+ * @param fd The file descriptor to write to.
+ * @param buffer The buffer to write data from.
+ * @param size The number of bytes to write.
+ * @return The number of bytes written, or -1 if an error occurred.
+ */
 ssize_t my_write(int fd, const void* buffer, size_t size) {
     ssize_t done = 0;
     ssize_t new_size = (ssize_t) size;
@@ -92,6 +124,19 @@ int parse_uint(int fd, unsigned int *value, char *next) {
   return 0;
 }
 
+/**
+ * Parses an unsigned integer from a file descriptor.
+ *
+ * This function reads characters from the file descriptor `fd` until it encounters
+ * a character that is not a digit. It then converts the characters read into an
+ * unsigned integer and stores it in `value`. The character that caused the parsing
+ * to stop is stored in `next`.
+ *
+ * @param fd The file descriptor to read from.
+ * @param value Pointer to an unsigned int where the parsed value will be stored.
+ * @param next Pointer to a char where the next non-digit character will be stored.
+ * @return 0 if the parsing was successful, or 1 if an error occurred.
+ */
 int print_uint(int fd, unsigned int value) {
   char buffer[16];
   size_t i = 16;
@@ -116,6 +161,16 @@ int print_uint(int fd, unsigned int value) {
   return 0;
 }
 
+/**
+ * Writes a string to a file descriptor.
+ *
+ * This function writes the string `str` to the file descriptor `fd`. It uses a loop
+ * to ensure that the entire string is written, even if `write` writes less data than requested.
+ *
+ * @param fd The file descriptor to write to.
+ * @param str The string to write.
+ * @return The number of bytes written, or -1 if an error occurred.
+ */
 int print_str(int fd, const char *str) {
   size_t len = strlen(str);
   while (len > 0) {
