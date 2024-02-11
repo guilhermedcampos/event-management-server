@@ -266,7 +266,7 @@ void* handle_client(void* args) {
       case 3:  // ems_create
 
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-          print_error("2Error reading from named pipe.\n");
+          print_error("Error reading from named pipe.\n");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             print_error("Error writing to named pipe.\n");
@@ -275,7 +275,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, &event_id, sizeof(unsigned int)) == -1) {
-          print_error("3Error reading from named pipe.\n");
+          print_error("Error reading from named pipe.\n");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             print_error("Error writing to named pipe.\n");
@@ -293,7 +293,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, &num_cols, sizeof(size_t)) == -1) {
-          print_error("5Error reading from named pipe.\n");
+          print_error("Error reading from named pipe.\n");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             print_error("Error writing to named pipe.\n");
@@ -312,7 +312,7 @@ void* handle_client(void* args) {
       case 4:  // ems_reserve
 
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-          print_error("6Error reading from named pipe.\n");
+          print_error("Error reading from named pipe.\n");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             print_error("Error writing to named pipe.\n");
@@ -321,7 +321,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, &event_id, sizeof(unsigned int)) == -1) {
-          print_error("7Error reading from named pipe.\n");
+          print_error("Error reading from named pipe.\n");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             print_error("Error writing to named pipe.\n");
@@ -330,7 +330,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, &num_seats, sizeof(size_t)) == -1) {
-          print_error("8Error reading from named pipe.\n");
+          print_error("Error reading from named pipe.\n");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             print_error("Error writing to named pipe.\n");
@@ -339,7 +339,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, xs, num_seats * sizeof(size_t)) == -1) {
-          print_error("9Error reading from named pipe.\n");
+          print_error("Error reading from named pipe.\n");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             print_error("Error writing to named pipe.\n");
@@ -348,7 +348,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, ys, num_seats * sizeof(size_t)) == -1) {
-          print_error("10Error reading from named pipe.\n");
+          print_error("Error reading from named pipe.\n");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             print_error("Error writing to named pipe.\n");
@@ -367,7 +367,7 @@ void* handle_client(void* args) {
       case 5:  // ems_show
 
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-          print_error("11Error reading from named pipe.\n");
+          print_error("Error reading from named pipe.\n");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             print_error("Error writing to named pipe.\n");
@@ -376,7 +376,7 @@ void* handle_client(void* args) {
         }
 
         if (my_read(request_pipe, &event_id, sizeof(unsigned int)) == -1) {
-          print_error("12Error reading from named pipe.\n");
+          print_error("Error reading from named pipe.\n");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             print_error("Error writing to named pipe.\n");
@@ -391,7 +391,7 @@ void* handle_client(void* args) {
       case 6:  // ems_list_events
 
         if (my_read(request_pipe, &thread_args->session_id, sizeof(int)) == -1) {
-          print_error("13Error reading from named pipe.\n");
+          print_error("Error reading from named pipe.\n");
           result = 1;
           if (my_write(response_pipe, &result, sizeof(int)) == -1) {
             print_error("Error writing to named pipe.\n");

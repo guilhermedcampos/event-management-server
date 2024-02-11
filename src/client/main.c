@@ -65,7 +65,6 @@ int main(int argc, char* argv[]) {
 
     switch (get_next(in_fd)) {
       case CMD_CREATE:
-        printf("ems_create\n");
         if (parse_create(in_fd, &event_id, &num_rows, &num_columns) != 0) {
           print_error("Invalid command. See HELP for usage\n");
           continue;
@@ -74,7 +73,6 @@ int main(int argc, char* argv[]) {
         if (ems_create(event_id, num_rows, num_columns)) print_error("Failed to create event\n");
         break;
       case CMD_RESERVE:
-        printf("ems_reserve\n");
         num_coords = parse_reserve(in_fd, MAX_RESERVATION_SIZE, &event_id, xs, ys);
 
         if (num_coords == 0) {
@@ -86,7 +84,6 @@ int main(int argc, char* argv[]) {
         break;
 
       case CMD_SHOW:
-        printf("ems_show\n");
         if (parse_show(in_fd, &event_id) != 0) {
           print_error("Invalid command. See HELP for usage\n");
           continue;
@@ -96,12 +93,10 @@ int main(int argc, char* argv[]) {
         break;
 
       case CMD_LIST_EVENTS:
-        printf("ems_list_events\n");
         if (ems_list_events(out_fd)) print_error("Failed to list events\n");
         break;
 
       case CMD_WAIT:
-        printf("ems_wait\n");
         if (parse_wait(in_fd, &delay, NULL) == -1) {
           print_error("Invalid command. See HELP for usage\n");
           continue;
@@ -133,7 +128,6 @@ int main(int argc, char* argv[]) {
         break;
 
       case EOC:
-        printf("End of commands\n");
         if (close(in_fd) == -1) {
           fprintf(stderr, "Failed to close input file. Path: %s\n", argv[4]);
           return 1;

@@ -26,15 +26,11 @@ client/client: common/io.o client/main.o client/api.o client/parser.o
 run: server/ems
 	@./server/ems
 
+# A command to remove the server pipe path can be added here
 clean:
 	rm -f common/*.o client/*.o server/*.o ems client/client
 	rm -f my_pipe*
-	rm -f a1*
-	rm -f a2*
-	rm -f b1*
-	rm -f b2*
-	rm -f c1*
-	rm -f c2*
+	rm -f server/ems*
 	rm -f jobs/*.out
 
 format:

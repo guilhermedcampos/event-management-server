@@ -89,7 +89,19 @@ ssize_t my_write(int fd, const void* buffer, size_t size) {
     return done;
 }
 
-
+/**
+ * Parses an unsigned integer from a file descriptor.
+ * 
+ * This function reads characters from the file descriptor `fd` until it encounters
+ * a character that is not a digit. It then converts the characters read into an
+ * unsigned integer and stores it in `value`. The character that caused the parsing
+ * to stop is stored in `next`.
+ * 
+ * @param fd The file descriptor to read from.
+ * @param value Pointer to an unsigned int where the parsed value will be stored.
+ * @param next Pointer to a char where the next non-digit character will be stored.
+ * @return 0 if the parsing was successful, or 1 if an error occurred.
+*/
 int parse_uint(int fd, unsigned int *value, char *next) {
   char buf[16];
 
