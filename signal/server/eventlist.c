@@ -1,7 +1,7 @@
-#include "eventlist.h"
-
 #include <pthread.h>
 #include <stdlib.h>
+
+#include "eventlist.h"
 
 /**
  * @brief Creates a new event list.

@@ -1,10 +1,9 @@
-#include "parser.h"
-
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#include "parser.h"
 #include "common/constants.h"
 #include "common/io.h"
 

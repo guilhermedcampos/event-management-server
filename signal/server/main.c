@@ -69,7 +69,9 @@ void sigusr1_handler(int signum ) {
   if (signum == SIGUSR1) {
     print_flag = 1; 
   }
-   signal(SIGUSR1, sigusr1_handler);
+  
+  // Re-register the signal handler
+  signal(SIGUSR1, sigusr1_handler);
 }
 
 /**
