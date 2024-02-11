@@ -1,4 +1,4 @@
-# EMS Server
+# Event Management Server
 
 This program consists in a Operating Systems project designed to explore interaction with named pipes, interaction via signals send by console, multi-threading, synchronization, and file programming with POSIX. The primary goal is to read inputs from files, produce outputs, and allow the configuration of the number of active processes and threads for each process. This project has both a server and client side, in contrary to the other EMS project. Each client is allowed to send a request, represented by a .jobs file. Multiple clients can access the server at the same time, but each client can only send one request at a time. The server reads the request through pipes and writes to the client through response pipes the expected output for a specific request file. The Event Management Serever provides a foundation for managing events and reservations. It supports commands to create events, reserve seats, show the current state of events, list events, introduce delays, and synchronizes it's threads with the use of a cyclic producer consumer buffer to handle a queue of requests. As previously mentioned, the pipes allow the client and server to communicate the input/output and also the state of requests.  
 The signals were employed for additional interaction with the server to trigger a specific event. We made a minor enhancement by introducing my_read and my_write functions, which are resilient to signals. These functions are designed to resume their actions if they're interrupted by signals during execution, ensuring they don't terminate abruptly.
@@ -12,7 +12,7 @@ The signals were employed for additional interaction with the server to trigger 
 
 ## Installation
 
-To install and run the EMS server, follow these steps:
+To install and run the EMS, follow these steps:
 
 1. Clone the repository:
 
